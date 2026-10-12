@@ -534,8 +534,26 @@ function ablAct(s, acts, R) {
   if (ABL.has('nav') && a.t === 'move') a = moves[Math.floor(R() * moves.length)];
   return a;
 }
+// The obvious beginner plan (the skill baseline): loot whatever you stand on, step to the next unlooted neighbour, repeat.
+// Pays with the lowest card that is not the key suit. Once keyed: zoom out if the finish card is not visible, then walk to it.
+function obviousAct(s, acts, R) {
+  if (s.site) return heurAct(s, acts, R); // looting is mandatory; free first, then cheapest
+  if (acts.some((a) => a.t === 'open')) return { t: 'open' };
+  const moves = acts.filter((a) => a.t === 'move');
+  let vi = -1;
+  for (let i = 0; i < 9; i++) if (s.gup[i] && s.gc[i] === s.vault) vi = i;
+  if (hasKey(s)) {
+    if (vi >= 0) { const r = Math.floor(vi / 3), c = vi % 3; return moves.find((m) => m.d === (r < 1 ? 0 : r > 1 ? 1 : c < 1 ? 2 : 3)); }
+    const sc = acts.find((a) => a.t === 'scout');
+    if (sc) return sc;
+  }
+  const z = acts.find((a) => a.t === 'zoom');
+  if (z) return z;
+  const val = (i) => (s.gc[i] < 0 || s.gdone[i] || s.gc[i] === s.vault ? -1 : s.gup[i] ? rank(s.gc[i]) : 1) + R() * 0.1;
+  return moves.reduce((b, m) => (val(TARGET[m.d]) > val(TARGET[b.d]) ? m : b));
+}
 const noisy = (e) => (s, acts, R) => (R() < e ? randAct(s, acts, R) : heurAct(s, acts, R));
-const POLICIES = { random: randAct, heur: heurAct, mc: mcAct, heur10: noisy(0.1), heur25: noisy(0.25), heur50: noisy(0.5), heur05: noisy(0.05), abl: ablAct,
+const POLICIES = { random: randAct, heur: heurAct, mc: mcAct, obvious: obviousAct, heur10: noisy(0.1), heur25: noisy(0.25), heur50: noisy(0.5), heur05: noisy(0.05), abl: ablAct,
   ablN: (s, acts, R) => (R() < +(process.env.NOISE ?? 0.1) ? randAct(s, acts, R) : ablAct(s, acts, R)) };
 
 // ---------- running ----------
