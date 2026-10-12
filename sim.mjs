@@ -23,6 +23,9 @@ export const P = {
   // escalation per lap (each time the pile has been reshuffled): zoom costs more / monsters stronger / spreads shrink
   ESC_ZOOM: +(process.env.ESC_ZOOM ?? 1), TOLL: +(process.env.TOLL ?? 0), ESC_MON: +(process.env.ESC_MON ?? 0), ESC_K: +(process.env.ESC_K ?? 0),
   SITE_BONUS: +(process.env.SITE_BONUS ?? 0),
+  // LOCKS=1: key cards live only on the map, locked by their rank: claim one by paying a hand card of the same rank.
+  // Claimed key cards go to a separate KEY ROW (never spent, not counted in the hand limit).
+  LOCKS: +(process.env.LOCKS ?? 0),
   lockLen: () => +(process.env.LOCK_LEN ?? 4),
   siteK: (r) => (r <= 5 ? 1 : r <= 10 ? 2 : 3) + +(process.env.SITE_BONUS ?? 0),
 };
@@ -75,6 +78,10 @@ function newGame(seed) {
     site: null, steps: 0, over: null, recycles: 0,
     seen: new Uint8Array(52), stats: { fights: 0, passes: 0, zooms: 0, moves: 0, scouts: 0, overflow: 0 },
   };
+  if (P.LOCKS) { // key cards dealt to the hand go to the bottom of the pile; deal another
+    s.keys = [];
+    for (let i = 0; i < s.pack.length; i++) while (isKeyCard(s, s.pack[i])) { s.draw.unshift(s.pack[i]); s.pack[i] = s.draw.pop(); }
+  }
   for (const c of pack) s.seen[c] = 1;
   reveal(s, 4);
   return s;
@@ -85,14 +92,15 @@ function clone(s, R) {
     draw: s.draw.slice(), behind: s.behind.slice(), ashes: s.ashes.slice(), pack: s.pack.slice(),
     gc: s.gc.slice(), gup: s.gup.slice(), gdone: s.gdone.slice(),
     site: s.site && { cards: s.site.cards.slice(), done: s.site.done.slice() },
-    seen: s.seen.slice(), stats: { ...s.stats },
+    seen: s.seen.slice(), stats: { ...s.stats }, keys: s.keys && s.keys.slice(),
   };
 }
 function reveal(s, i) {
   if (!s.gup[i] && s.gc[i] >= 0) { s.gup[i] = 1; s.seen[s.gc[i]] = 1; }
 }
+const isKeyCard = (s, c) => P.LOCKS && c >= 0 && suit(c) === s.S && c !== s.vault;
 function drawCard(s, skipVault) {
-  for (let t = 0; t < 2; t++) {
+  for (let t = 0; t < 60; t++) {
     if (!s.draw.length) {
       if (!s.behind.length || s.recycles >= P.MAX_RECYCLES) { s.exhausted = true; return -1; } // the world has no cards left to deal
       if (process.env.LOCK_OUT === 'lap' && !s.recycles) s.behind.push(s.lock); // variant: the lock marker rejoins the world at the first reshuffle
@@ -102,14 +110,34 @@ function drawCard(s, skipVault) {
       for (let k = 0; k < P.TOLL && s.pack.length; k++) payOne(s); // the world takes a toll each lap
     }
     const c = s.draw.pop();
-    if (skipVault && c === s.vault) { s.draw.unshift(c); continue; }
+    if (skipVault && (c === s.vault || isKeyCard(s, c))) { s.draw.unshift(c); continue; } // spreads never hold the finish card (or, with LOCKS, key cards)
     return c;
   }
   return -1;
 }
 
 // ---------- card values ----------
+// LOCKS: which key ranks are worth chasing? Score each 4-run by key cards held (and, lightly, key cards visible on the map).
+function lockPlan(s) {
+  const lr = suit(s.lock) === s.S && process.env.LOCK_OUT ? rank(s.lock) : -1; // the lock card is out of play: runs through it are dead
+  const vis = new Set();
+  for (let i = 0; i < 9; i++) if (s.gup[i] && isKeyCard(s, s.gc[i])) vis.add(rank(s.gc[i]));
+  const held = new Set(s.keys.map(rank));
+  let best = -1, want = new Set();
+  for (let a = 2; a + s.L - 1 <= 13; a++) {
+    if (lr >= a && lr < a + s.L) continue;
+    let sc = 0;
+    for (let r = a; r < a + s.L; r++) sc += held.has(r) ? 1 : vis.has(r) ? 0.4 : 0;
+    if (sc > best + 1e-9) { best = sc; want = new Set(); }
+    if (Math.abs(sc - best) < 1e-9) for (let r = a; r < a + s.L; r++) if (!held.has(r)) want.add(r);
+  }
+  return { want, vis, held };
+}
 function keepVals(s) {
+  if (P.LOCKS) { // hand cards are tools; a card whose rank opens a wanted key card is precious, more so if that key card is on the map now
+    const { want, vis } = lockPlan(s);
+    return s.pack.map((c) => 1 + ((rank(c) - 2) / 12) * 0.4 + (want.has(rank(c)) ? (vis.has(rank(c)) ? 3.5 : 1.2) : 0));
+  }
   const { pack, S, L } = s;
   const kv = pack.map((c) => 1 + ((rank(c) - 2) / 12) * 0.4);
   let best = 0, wins = [];
@@ -127,9 +155,10 @@ function keepVals(s) {
 }
 function keyProgress(s) {
   let best = 0;
+  const src = P.LOCKS ? s.keys : s.pack;
   for (let a = 2; a + s.L - 1 <= 13; a++) {
     let h = 0;
-    for (let r = a; r < a + s.L; r++) if (s.pack.some((c) => suit(c) === s.S && rank(c) === r)) h++;
+    for (let r = a; r < a + s.L; r++) if (src.some((c) => suit(c) === s.S && rank(c) === r)) h++;
     best = Math.max(best, h);
   }
   return best / s.L;
@@ -138,6 +167,7 @@ const hasKey = (s) => keyProgress(s) >= 1;
 const power = (c) => rank(c) * (suit(c) === 0 ? 2 : 1);
 const strength = (m, s) => Math.ceil(rank(m) / P.MON_DIV) + P.ESC_MON * s.recycles;
 const zoomCost = (s) => 1 + P.ESC_ZOOM * s.recycles + (s.tax ?? 0);
+const scoutCost = (s) => (process.env.FREE_SCOUT_KEYED && hasKey(s) ? 0 : zoomCost(s)); // FREE_SCOUT_KEYED=1: once you hold the key, zooming out is free
 const spreadK = (c, s) => Math.max(1, K(c, s.S) - P.ESC_K * s.recycles);
 function payN(s, n) { const out = []; for (let i = 0; i < n; i++) out.push(payOne(s)); return out; }
 
@@ -217,10 +247,9 @@ function legal(s) {
   const ctr = s.gc[4];
   if (ctr === s.vault && hasKey(s)) acts.push({ t: 'open' });
   if (!P.MOVE_COST || s.pack.length >= 1) for (let d = 0; d < 4; d++) acts.push({ t: 'move', d });
-  if (s.pack.length >= zoomCost(s)) {
-    if (ctr >= 0 && s.gup[4] && !s.gdone[4] && ctr !== s.vault) acts.push({ t: 'zoom' });
-    if (s.gup.some((u, i) => !u && s.gc[i] >= 0)) acts.push({ t: 'scout' });
-  }
+  if (isKeyCard(s, ctr) && s.pack.some((c) => rank(c) === rank(ctr))) acts.push({ t: 'claim' });
+  if (s.pack.length >= zoomCost(s) && ctr >= 0 && s.gup[4] && !s.gdone[4] && ctr !== s.vault && !isKeyCard(s, ctr)) acts.push({ t: 'zoom' });
+  if (s.pack.length >= scoutCost(s) && s.gup.some((u, i) => !u && s.gc[i] >= 0)) acts.push({ t: 'scout' });
   return acts;
 }
 function shift(s, d) {
@@ -256,7 +285,7 @@ function apply(s, a, log) {
   const say = (x) => log && log(x);
   switch (a.t) {
     case 'scout': {
-      const c = payN(s, zoomCost(s)).map(nm).join('+');
+      const c = payN(s, scoutCost(s)).map(nm).join('+') || 'nothing';
       s.tax = 0;
       say(`Zoom OUT: spend ${c} to survey the whole map.`);
       for (let i = 0; i < 9; i++) reveal(s, i);
@@ -351,6 +380,18 @@ function apply(s, a, log) {
       say('  Cannot pay for the rest: those cards are forgotten.');
       finishSite(s);
       break;
+    case 'claim': { // pay the cheapest hand card of the same rank; the key card moves to the key row
+      const ctr = s.gc[4], kv = payVals(s);
+      let w = -1;
+      s.pack.forEach((c, i) => { if (rank(c) === rank(ctr) && (w < 0 || kv[i] < kv[w])) w = i; });
+      const paid = process.env.CLAIM_SHOW ? s.pack[w] : s.pack.splice(w, 1)[0]; // CLAIM_SHOW=1: you only show the matching rank, you keep it
+      if (!process.env.CLAIM_SHOW) s.ashes.push(paid);
+      s.keys.push(ctr);
+      s.gc[4] = -1; s.gdone[4] = 2;
+      s.stats.claims = (s.stats.claims ?? 0) + 1;
+      say(`Claim ${nm(ctr)} with ${nm(paid)}: key row ${s.keys.slice().sort((a, b) => a - b).map(nm).join(' ')}.`);
+      break;
+    }
     case 'open':
       s.over = 'win';
       say('The finish card is the middle card and you hold your key: YOU WIN.');
@@ -366,6 +407,7 @@ function cellScore(s, i, keyed) {
   if (!s.gup[i]) return 5.2;
   if (c === s.vault) return keyed ? 900 : keyProgress(s) >= 0.66 ? 8 : 2;
   if (s.gdone[i]) return 0.5;
+  if (isKeyCard(s, c)) return !lockPlan(s).want.has(rank(c)) ? 0.5 : s.pack.some((x) => rank(x) === rank(c)) ? 40 : 3;
   return 4 + 1.6 * K(c, s.S) + (suit(c) === s.S ? 2 : 0);
 }
 const DISC = [[6, 7, 8], [0, 1, 2], [2, 5, 8], [0, 3, 6]];
@@ -446,8 +488,9 @@ function heurAct(s, acts, R) {
   let bestS = -Infinity, bestA = null;
   for (const a of acts) {
     let sc;
-    if (a.t === 'zoom') sc = s.pack.length >= zoomCost(s) + 1 ? 5 + 1.6 * spreadK(s.gc[4], s) : 1;
-    else if (a.t === 'scout') sc = s.pack.length >= zoomCost(s) + 2 ? 0.55 * down : 0;
+    if (a.t === 'claim') sc = lockPlan(s).want.has(rank(s.gc[4])) ? 100 : -1;
+    else if (a.t === 'zoom') sc = s.pack.length >= zoomCost(s) + 1 ? 5 + 1.6 * spreadK(s.gc[4], s) : 1;
+    else if (a.t === 'scout') sc = !scoutCost(s) ? (vi < 0 ? 50 : -1) : s.pack.length >= zoomCost(s) + 2 ? 0.55 * down : 0;
     else {
       sc = cellScore(s, TARGET[a.d], keyed) - 0.25 * DISC[a.d].reduce((x, g) => x + cellScore(s, g, keyed), 0);
       if (keyed && vi >= 0) {
@@ -539,6 +582,7 @@ function ablAct(s, acts, R) {
 function obviousAct(s, acts, R) {
   if (s.site) return heurAct(s, acts, R); // looting is mandatory; free first, then cheapest
   if (acts.some((a) => a.t === 'open')) return { t: 'open' };
+  if (acts.some((a) => a.t === 'claim')) return { t: 'claim' }; // a beginner opens every lock they can
   const moves = acts.filter((a) => a.t === 'move');
   let vi = -1;
   for (let i = 0; i < 9; i++) if (s.gup[i] && s.gc[i] === s.vault) vi = i;
@@ -549,7 +593,12 @@ function obviousAct(s, acts, R) {
   }
   const z = acts.find((a) => a.t === 'zoom');
   if (z) return z;
-  const val = (i) => (s.gc[i] < 0 || s.gdone[i] || s.gc[i] === s.vault ? -1 : s.gup[i] ? rank(s.gc[i]) : 1) + R() * 0.1;
+  return obviousMove(s, moves, R);
+}
+function obviousMove(s, moves, R) {
+  const val = (i) => (s.gc[i] < 0 || s.gdone[i] || s.gc[i] === s.vault ? -1
+    : s.gup[i] && isKeyCard(s, s.gc[i]) ? (s.pack.some((c) => rank(c) === rank(s.gc[i])) ? 50 : -1) // go open a lock you can open
+    : s.gup[i] ? rank(s.gc[i]) : 1) + R() * 0.1;
   return moves.reduce((b, m) => (val(TARGET[m.d]) > val(TARGET[b.d]) ? m : b));
 }
 const noisy = (e) => (s, acts, R) => (R() < e ? randAct(s, acts, R) : heurAct(s, acts, R));
@@ -588,6 +637,7 @@ export function render(s) {
     rows.push('   ' + line);
   }
   rows.push(`   Hand(${s.pack.length}): ${s.pack.slice().sort((a, b) => suit(a) - suit(b) || rank(a) - rank(b)).map(nm).join(' ')}`);
+  if (s.keys) rows.push(`   Key row: ${s.keys.slice().sort((a, b) => a - b).map(nm).join(' ') || '-'}`);
   rows.push(`   Pile: ${s.draw.length}   Behind: ${s.behind.length}   Gone: ${s.ashes.length}   Lap: ${s.recycles + 1} (zoom costs ${zoomCost(s)})`);
   return rows.join('\n');
 }

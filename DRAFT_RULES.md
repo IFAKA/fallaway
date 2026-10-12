@@ -63,3 +63,14 @@ Backtest, clean bot, 10000 games each (`LOCK_OUT=1 LIMIT=10 node sim.mjs heur`):
 v2 (lock shuffled back, limit 8) 47.1% | lock out, limit 8 39.9% | lock out, limit 9 44.8% | lock out, limit 10 47.6% | lock out, limit 9 + 7-card start 49.0%.
 Other options tried: lock rejoins at the first reshuffle 42.3%; lock starts in your hand 49.3% (but it can be paid away, so no reminder).
 Losing the lock removes one key-suit card from play, hence the drop; a higher hand limit gives it back. Limit 10 matches v2 with one number changed.
+
+### Experiment: locks (2026-10-13, not adopted yet)
+Problem: the obvious beginner plan ("zoom on whatever you stand on, step to the next unlooted card, repeat"; `node sim.mjs obvious`) wins 48.5% vs the careful bot's 47.2%: where you go and when you zoom add no skill.
+Idea: macro (the map) shows what you need, micro (spreads) gives what opens it.
+- Key cards live only on the map: a key-suit card turning up in a spread or the starting hand goes to the bottom of the pile.
+- A key card on the map is locked by its rank: stand on it and show a hand card of the same rank to claim it (you keep the shown card). You cannot zoom into a key card.
+- Claimed key cards go to a face-up KEY ROW: never spent, not counted in the hand limit.
+- Once the key row holds the run, zooming out is free.
+Results (`LOCK_OUT=1 LOCKS=1 CLAIM_SHOW=1 FREE_SCOUT_KEYED=1 LIMIT=10 PACK_START=n`, 5000 games; careful vs beginner):
+paying the rank instead of showing it, no free zoom-out: 6% vs 4% | show, start 5: 28.5% vs 13.5% | start 7: 36.8% vs 15.8% (20000 games) | **start 8: 40.5% vs 17.4%** | start 9: 42.1% vs 16.2%. Random 0%.
+The careful bot is a first draft for these rules, so the real skill gap is probably larger.
