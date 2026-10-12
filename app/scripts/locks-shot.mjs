@@ -1,11 +1,11 @@
-// node scripts/locks-shot.mjs — play a locks-mode game with the Hint button on the running dev server; screenshots to /tmp/zoomcheck
+// node scripts/locks-shot.mjs — play a game with the Hint button on the running dev server; screenshots to /tmp/zoomcheck
 import puppeteer from 'puppeteer-core'
 const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox'] })
 const p = await b.newPage()
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && errs.push(m.text()))
 await p.setViewport({ width: 1300, height: 1000 })
 await p.evaluateOnNewDocument(() => { localStorage.setItem('zoom-mode', 'practice'); localStorage.setItem('zoom-seen-intro', '1') })
-await p.goto(`${process.env.URL ?? 'http://localhost:5199'}/?seed=7&locks=1`, { waitUntil: 'networkidle0' })
+await p.goto(`${process.env.URL ?? 'http://localhost:5199'}/?seed=7`, { waitUntil: 'networkidle0' })
 await new Promise(r => setTimeout(r, 1200))
 await p.screenshot({ path: '/tmp/zoomcheck/locks-0-start.png' })
 const click = (txt) => p.evaluate(t => { const e = [...document.querySelectorAll('button')].find(e => e.textContent.startsWith(t) && !e.disabled); if (e) e.click(); return !!e }, txt)

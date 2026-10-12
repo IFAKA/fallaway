@@ -1,6 +1,6 @@
 // Zoom — guide engine for playing with a REAL deck. The app never deals: the player flips physical cards and ENTERS what they see.
 // Face-down cards are unknown to the app (cell.c === null). Every action returns a new state with `todo`: the physical steps to perform.
-import { LIMIT, START, START_LOCKS, SUITS, isRed, keepVals, label, lockLen, power, rank, rankLabel, siteK, strength, suit, zoomCost } from './engine'
+import { LIMIT, START, SUITS, isRed, label, lockLen, power, rank, rankLabel, siteK, strength, suit, zoomCost } from './engine'
 import type { Advice } from './engine'
 
 export interface Cell { id: number; c: number | null; up: boolean; done: 0 | 1 | 2; gap: boolean }
@@ -15,8 +15,8 @@ export interface G {
   pile: number; behind: number; recycles: number; exhausted: boolean
   over: null | 'win' | 'lose'
   todo: string[]; log: string[]; steps: number
-  // locks rules: key cards live only on the map, locked by their rank; claimed ones sit face-up in the KEY ROW
-  locks: boolean; keys: number[]
+  // key cards live only on the map, locked by their rank; claimed ones sit face-up in the KEY ROW
+  keys: number[]
 }
 export type Need =
   | { kind: 'lock' } | { kind: 'pack'; left: number } | { kind: 'cell'; i: number } | { kind: 'spread'; left: number }
@@ -26,23 +26,22 @@ const blank = (): Cell => ({ id: nextId++, c: null, up: false, done: 0, gap: fal
 /** Saved games from before cells had ids: give every cell a unique id (and keep new ids above them). */
 export function fixIds(h: G[]): G[] {
   h.forEach(g => g.grid.forEach(c => { if (c.id === undefined) c.id = nextId++; else nextId = Math.max(nextId, c.id + 1) }))
-  return h.map(g => ({ ...g, locks: g.locks ?? false, keys: g.keys ?? [] })) // saves from before locks rules
+  return h
 }
 export const newG = (): G => ({
   step: 'intro', lock: null, S: 0, L: 3, vault: 48,
   pack: [], ashes: [], grid: Array.from({ length: 9 }, blank), site: null,
-  pile: 37, behind: 0, recycles: 0, exhausted: false, over: null, todo: [], log: [], steps: 0, locks: false, keys: [],
+  pile: PILE_SIZE, behind: 0, recycles: 0, exhausted: false, over: null, todo: [], log: [], steps: 0, keys: [],
 })
 const clone = (g: G): G => ({
   ...g, pack: g.pack.slice(), ashes: g.ashes.slice(), grid: g.grid.map(c => ({ ...c })), keys: g.keys.slice(),
   site: g.site && { cards: g.site.cards.slice(), done: g.site.done.slice(), k: g.site.k, skips: g.site.skips },
   todo: [], log: g.log.slice(),
 })
-export const handSize = (g: G) => (g.locks ? START_LOCKS : START)
 /** cards in the pile once the map is dealt: 52 - lock - hand - 9 map cards (the finish card is shuffled in) */
-export const pileSize = (g: G) => 52 - 1 - handSize(g) - 9
-/** locks: a card of the key suit other than the finish card */
-export const isKeyCard = (g: G, c: number | null) => g.locks && c !== null && suit(c) === g.S && c !== g.vault
+export const PILE_SIZE = 52 - 1 - START - 9
+/** a card of the key suit other than the finish card */
+export const isKeyCard = (g: G, c: number | null) => c !== null && suit(c) === g.S && c !== g.vault
 
 // ---------- derived ----------
 export const overflow = (g: G) => Math.max(0, g.pack.length - LIMIT)
@@ -52,7 +51,7 @@ export function knownCards(g: G): number[] {
 export function needOf(g: G): Need | null {
   if (g.over) return null
   if (g.step === 'lock') return { kind: 'lock' }
-  if (g.step === 'pack') return { kind: 'pack', left: handSize(g) - g.pack.length }
+  if (g.step === 'pack') return { kind: 'pack', left: START - g.pack.length }
   if (g.step === 'grid') return { kind: 'cell', i: 4 }
   if (g.site && g.site.cards.length < g.site.k) return { kind: 'spread', left: g.site.k - g.site.cards.length }
   const i = g.grid.findIndex(c => c.up && c.c === null && !c.gap)
@@ -61,7 +60,7 @@ export function needOf(g: G): Need | null {
 export const pendingCells = (g: G) => g.grid.flatMap((c, i) => (c.up && c.c === null && !c.gap ? [i] : []))
 const busy = (g: G) => g.step !== 'play' || !!g.over || overflow(g) > 0 || !!needOf(g)
 export const centerCard = (g: G) => g.grid[4].c
-export function keyHeld(g: G, pack = g.locks ? g.keys : g.pack): number {
+export function keyHeld(g: G, pack = g.keys): number {
   let best = 0
   for (let a = 2; a + g.L - 1 <= 13; a++) {
     let h = 0
@@ -75,15 +74,15 @@ export const canZoom = (g: G) => {
   const c = g.grid[4]
   return !busy(g) && !g.site && !c.gap && c.up && c.c !== null && c.done === 0 && c.c !== g.vault && !isKeyCard(g, c.c) && g.pack.length >= zoomCost(g)
 }
-/** locks: once your key row holds the run, zooming out is free */
-export const scoutCost = (g: G) => (g.locks && hasKey(g) ? 0 : zoomCost(g))
+/** once your key row holds the run, zooming out is free */
+export const scoutCost = (g: G) => (hasKey(g) ? 0 : zoomCost(g))
 export const canScout = (g: G) => !busy(g) && !g.site && g.pack.length >= scoutCost(g) && g.grid.some(c => !c.up && !c.gap)
 export const canMove = (g: G) => !busy(g) && !g.site
 export const canOpen = (g: G) => !busy(g) && !g.site && g.grid[4].c === g.vault && hasKey(g)
-/** locks: the hand cards that open the key card you stand on (same rank) */
+/** the hand cards that open the key card you stand on (same rank) */
 export const claimers = (g: G) => { const c = g.grid[4].c; return isKeyCard(g, c) ? g.pack.flatMap((x, i) => (rank(x) === rank(c!) ? [i] : [])) : [] }
 export const canClaim = (g: G) => !busy(g) && !g.site && claimers(g).length > 0
-/** locks: key ranks worth chasing (missing from the best runs; runs through the lock card are dead) + key ranks visible on the map */
+/** key ranks worth chasing (missing from the best runs; runs through the lock card are dead) + key ranks visible on the map */
 export function lockWant(g: G): { want: Set<number>; vis: Set<number> } {
   const vis = new Set<number>()
   g.grid.forEach(x => { if (x.up && isKeyCard(g, x.c)) vis.add(rank(x.c!)) })
@@ -100,9 +99,8 @@ export function lockWant(g: G): { want: Set<number>; vis: Set<number> } {
   }
   return { want, vis }
 }
-/** keep-value of each hand card (locks: a card whose rank opens a wanted key card is precious) — same numbers as engine.packVals */
+/** keep-value of each hand card (a card whose rank opens a wanted key card is precious) — same numbers as engine.packVals */
 export function packVals(g: G): number[] {
-  if (!g.locks) return keepVals(g.pack, g.S, g.L)
   const { want, vis } = lockWant(g)
   return g.pack.map(c => 1 + ((rank(c) - 2) / 12) * 0.4 + (want.has(rank(c)) ? (vis.has(rank(c)) ? 3.5 : 1.2) : 0))
 }
@@ -111,8 +109,8 @@ export type Where = 'pack' | 'gone' | 'table' | 'vault' | 'unknown'
 export function whereIs(g: G, c: number): Where {
   if (g.step !== 'play' && g.step !== 'hide' && g.step !== 'grid') return 'unknown'
   if (c === g.vault) return g.pack.includes(c) ? 'pack' : g.grid.some(x => x.c === c) ? 'table' : 'vault'
-  if (g.pack.includes(c) || g.keys.includes(c)) return 'pack' // locks: 'pack' means the key row
-  if (g.ashes.includes(c) || (g.locks && c === g.lock)) return 'gone'
+  if (g.pack.includes(c) || g.keys.includes(c)) return 'pack' // 'pack' means the key row
+  if (g.ashes.includes(c) || c === g.lock) return 'gone'
   if (g.grid.some(x => x.c === c) || g.site?.cards.includes(c)) return 'table'
   return 'unknown'
 }
@@ -123,9 +121,9 @@ export function keyPlan(g: G): KeyPlan {
   const of = (r: number) => (r - 2) * 4 + g.S
   for (let a = 2; a + g.L - 1 <= 13; a++) {
     const ranks = Array.from({ length: g.L }, (_, k) => a + k)
-    const have = ranks.filter(r => (g.locks ? g.keys : g.pack).includes(of(r)))
+    const have = ranks.filter(r => g.keys.includes(of(r)))
     const missing = ranks.filter(r => !have.includes(r))
-    if (missing.some(r => g.ashes.includes(of(r)) || (g.locks && of(r) === g.lock))) continue
+    if (missing.some(r => g.ashes.includes(of(r)) || of(r) === g.lock)) continue
     const score = have.length * 10 + missing.filter(r => whereIs(g, of(r)) === 'table').length
     if (score > bs) { bs = score; best = { ranks, have, missing, dead: false } }
   }
@@ -174,22 +172,22 @@ export function setLock(g: G, c: number): G | null {
   t.log.push(`Lock card ${label(c)}: you need ${t.L} consecutive ${SUITS[t.S]}; the finish card is A${SUITS[t.S]}.`)
   return t
 }
-export function nextStep(g: G, locks = false): G | null {
+export function nextStep(g: G): G | null {
   const t = clone(g)
-  if (g.step === 'intro') { t.step = 'lock'; t.locks = locks; return t }
+  if (g.step === 'intro') { t.step = 'lock'; return t }
   if (g.step === 'vault') { t.step = 'pack'; return t }
   if (g.step === 'hide') { t.step = 'play'; t.log.push('The game begins.'); return t }
   return null
 }
 export function enterPack(g: G, c: number): G | null {
-  if (g.step !== 'pack' || g.pack.length >= handSize(g)) return null
+  if (g.step !== 'pack' || g.pack.length >= START) return null
   const t = clone(g)
-  if (isKeyCard(t, c)) { // locks: key cards never start in your hand
+  if (isKeyCard(t, c)) { // key cards never start in your hand
     t.todo = [`${label(c)} is a key card (${SUITS[t.S]}): it cannot start in your hand. Put it FACE-DOWN at the BOTTOM of the deck and deal the next card instead.`]
     return t
   }
   t.pack.push(c)
-  if (t.pack.length === handSize(t)) { t.step = 'grid'; t.grid[4] = { ...blank(), up: true } }
+  if (t.pack.length === START) { t.step = 'grid'; t.grid[4] = { ...blank(), up: true } }
   return t
 }
 
@@ -199,7 +197,7 @@ export function enterCell(g: G, i: number, c: number): G | null {
   if (!cell.up || cell.c !== null || cell.gap) return null
   const t = clone(g)
   t.grid[i].c = c
-  if (g.step === 'grid') { t.step = 'hide'; t.pile = pileSize(t) }
+  if (g.step === 'grid') { t.step = 'hide'; t.pile = PILE_SIZE }
   else if (pendingCells(t).length) t.todo = g.todo // still flipping (zoom out): keep the instructions on screen
   return t
 }
@@ -214,7 +212,7 @@ export function enterSpread(g: G, c: number): G | null {
     return d.steps
   }
   if (c === t.vault || isKeyCard(t, c)) {
-    // the vault (locks: and key cards) never appears inside a spread: it goes to the bottom of the pile and the next card is dealt instead.
+    // the vault and key cards never appear inside a spread: it goes to the bottom of the pile and the next card is dealt instead.
     // When every card left in the pile has been put back like this, the spread stops.
     st.skips = (st.skips ?? 0) + 1
     t.pile += 1
@@ -276,7 +274,7 @@ export function scout(g: G, pay: number[]): G | null {
   t.log.push(pay.length ? `Zoom OUT: spend ${c}.` : 'Zoom OUT (free: you hold your key).')
   return settle(t)
 }
-/** locks: show a hand card of the same rank (keep it); the key card moves from the middle of the map to the key row */
+/** show a hand card of the same rank (keep it); the key card moves from the middle of the map to the key row */
 export function claim(g: G): G | null {
   if (!canClaim(g)) return null
   const t = clone(g)
@@ -394,7 +392,7 @@ function cellScore(g: G, i: number): number {
   if (x.c === g.vault) return hasKey(g) ? 900 : keyHeld(g) >= 0.66 ? 8 : 2
   if (x.done) return 0.5
   if (isKeyCard(g, x.c)) return !lockWant(g).want.has(rank(x.c)) ? 0.5 : g.pack.some(c => rank(c) === rank(x.c!)) ? 40 : 3
-  return 4 + 1.6 * siteK(rank(x.c)) + (suit(x.c) === g.S ? 2 : 0)
+  return 4 + 1.6 * siteK(rank(x.c))
 }
 const DISC = [[6, 7, 8], [0, 1, 2], [2, 5, 8], [0, 3, 6]]
 const DIRS = ['up', 'down', 'left', 'right']
@@ -432,7 +430,7 @@ export function advise(g: G): Tip | null {
   if (canZoom(g)) consider(g.pack.length >= zoomCost(g) + 1 ? 5 + 1.6 * siteK(rank(here!)) : 1, { advice: { kind: 'zoom', pay: payZ }, text: `Zoom in on ${label(here!)} (pay ${payNames}): unexplored regions are where the loot is.` })
   if (canScout(g)) {
     if (!scoutCost(g)) consider(vi < 0 ? 50 : -1, { advice: { kind: 'scout', pay: [] }, text: 'Zoom out (free now that you hold your key) to look for the finish card.' })
-    else consider(g.pack.length >= zoomCost(g) + 2 ? 0.55 * down : 0, { advice: { kind: 'scout', pay: payZ }, text: `Zoom out (pay ${payNames}) to see the whole map${g.locks ? ' and spot key cards' : ''} and find the finish card.` })
+    else consider(g.pack.length >= zoomCost(g) + 2 ? 0.55 * down : 0, { advice: { kind: 'scout', pay: payZ }, text: `Zoom out (pay ${payNames}) to see the whole map, spot key cards and find the finish card.` })
   }
   if (canMove(g)) {
     for (let d = 0; d < 4; d++) {

@@ -1,4 +1,6 @@
-# Zoom — rules v2 (bot-tested; this is what the web app plays)
+# Zoom — rules v2 (bot-tested)
+
+**The web app plays these rules with the "Locks" changes below** (start 8 cards, pile 34, key cards only on the map, claimed into a key row). Where the two differ, Locks wins.
 
 Standard 52 cards, no Jokers. Solo. 10-15 min.
 
@@ -64,7 +66,7 @@ v2 (lock shuffled back, limit 8) 47.1% | lock out, limit 8 39.9% | lock out, lim
 Other options tried: lock rejoins at the first reshuffle 42.3%; lock starts in your hand 49.3% (but it can be paid away, so no reminder).
 Losing the lock removes one key-suit card from play, hence the drop; a higher hand limit gives it back. Limit 10 matches v2 with one number changed.
 
-### Experiment: locks (2026-10-13, not adopted yet)
+### Locks (2026-10-13, adopted: these are the rules now)
 Problem: the obvious beginner plan ("zoom on whatever you stand on, step to the next unlooted card, repeat"; `node sim.mjs obvious`) wins 48.5% vs the careful bot's 47.2%: where you go and when you zoom add no skill.
 Idea: macro (the map) shows what you need, micro (spreads) gives what opens it.
 - Key cards live only on the map: a key-suit card turning up in a spread or the starting hand goes to the bottom of the pile.
@@ -77,4 +79,4 @@ The careful bot is a first draft for these rules, so the real skill gap is proba
 Skill per decision with locks (start 8, 10000 games; careful bot, one decision swapped for the beginner's; `SIMPLE=... node sim.mjs mix`):
 careful 39.9% | where to move 17.4% | when to zoom 15.7% | what to keep/pay with 6.9% | which locks to open 40.4% (no decision) | endgame 39.9% (no decision) | beginner 17.4%.
 Moving, zooming and keeping the right ranks are all real skill now; claiming and the free zoom-out are automatic.
-Playable in the web app: Practice -> "Rules: Locks (experiment)" (or `?seed=N&locks=1`), and with a real deck: "Play with a real deck (guide)" -> "Start setup: Locks" (start 8 cards, pile 34).
+The web app plays only these rules (Practice and the real-deck guide; start 8 cards, pile 34). Classic was removed from the app; sim.mjs still has it for comparison.

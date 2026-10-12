@@ -9,8 +9,7 @@ export const isRed = (c: number) => suit(c) === 1 || suit(c) === 2
 export const rankLabel = (r: number) => RK[r] ?? String(r)
 export const label = (c: number) => rankLabel(rank(c)) + SUITS[suit(c)]
 
-export const START = 5
-export const START_LOCKS = 8 // locks mode (DRAFT_RULES "Experiment: locks"): bigger starting hand
+export const START = 8
 export const LIMIT = 10
 /** Lap = how many times the pile has been reshuffled. Each lap, looking (zooming) costs one more card: the world is more picked over. */
 export const zoomCost = (s: { recycles: number }) => 1 + s.recycles
@@ -31,8 +30,8 @@ export interface State {
   seen: boolean[]
   steps: number
   log: string[]
-  // locks mode: key cards live only on the map, locked by their rank; claimed ones sit in the KEY ROW (never spent, no hand limit)
-  locks: boolean; keys: number[]
+  // key cards live only on the map, locked by their rank; claimed ones sit in the KEY ROW (never spent, no hand limit)
+  keys: number[]
 }
 
 // ---------- rng ----------
@@ -58,14 +57,14 @@ const cloneState = (s: State): State => ({
   seen: s.seen.slice(), log: s.log.slice(), keys: s.keys.slice(),
 })
 
-export function newGame(seed: number, locks = false): State {
+export function newGame(seed: number): State {
   const t = { rng: seed >>> 0 } as State
   const deck = shuffle([...Array(52).keys()], t)
   const lock = deck.splice(deck.findIndex(c => rank(c) !== 14), 1)[0]
   const S = suit(lock)
   const vault = (12 << 2) | S // Ace of the lock's suit
   deck.splice(deck.indexOf(vault), 1)
-  const pack = deck.splice(0, locks ? START_LOCKS : START)
+  const pack = deck.splice(0, START)
   const grid = deck.splice(0, 9)
   deck.splice(8 + Math.floor(rand(t) * 22), 0, vault) // vault somewhere in the middle of the pile
   const s: State = {
@@ -73,19 +72,17 @@ export function newGame(seed: number, locks = false): State {
     draw: deck.reverse(), behind: [], ashes: [], pack,
     gc: grid, gup: Array(9).fill(false), gdone: Array(9).fill(0),
     site: null, recycles: 0, exhausted: false, over: null,
-    seen: Array(52).fill(false), steps: 0, log: [], locks, keys: [],
+    seen: Array(52).fill(false), steps: 0, log: [], keys: [],
   }
-  // locks: key cards dealt to the hand go to the bottom of the pile; deal another
-  if (locks) for (let i = 0; i < pack.length; i++) while (isKeyCard(s, pack[i])) { s.draw.unshift(pack[i]); pack[i] = s.draw.pop()! }
+  // key cards dealt to the hand go to the bottom of the pile; deal another
+  for (let i = 0; i < pack.length; i++) while (isKeyCard(s, pack[i])) { s.draw.unshift(pack[i]); pack[i] = s.draw.pop()! }
   for (const c of pack) s.seen[c] = true
   reveal(s, 4)
-  s.log.push(locks
-    ? `New game #${seed} (locks). Lock card ${label(lock)}: claim ${s.L} consecutive ${SUITS[S]} from the map into your key row, then stand on the finish card (A${SUITS[S]}).`
-    : `New game #${seed}. Lock card ${label(lock)}: you need ${s.L} consecutive ${SUITS[S]} in your pack, then stand on the finish card (A${SUITS[S]}).`)
+  s.log.push(`New game #${seed}. Lock card ${label(lock)}: claim ${s.L} consecutive ${SUITS[S]} from the map into your key row, then stand on the finish card (A${SUITS[S]}).`)
   return s
 }
-/** locks mode: a card of the key suit other than the finish card */
-export const isKeyCard = (s: State, c: number) => s.locks && c >= 0 && suit(c) === s.S && c !== s.vault
+/** a card of the key suit other than the finish card */
+export const isKeyCard = (s: State, c: number) => c >= 0 && suit(c) === s.S && c !== s.vault
 
 function reveal(t: State, i: number) {
   if (!t.gup[i] && t.gc[i] >= 0) { t.gup[i] = true; t.seen[t.gc[i]] = true }
@@ -100,30 +97,14 @@ function drawCard(t: State, skipVault: boolean): number {
       t.log.push(`The pile ran out: BEHIND is shuffled into a new pile. Lap ${t.recycles + 1}: from now on zooming costs ${zoomCost(t)} cards.`)
     }
     const c = t.draw.pop()!
-    if (skipVault && (c === t.vault || isKeyCard(t, c))) { t.draw.unshift(c); continue } // spreads never hold the finish card (locks: nor key cards)
+    if (skipVault && (c === t.vault || isKeyCard(t, c))) { t.draw.unshift(c); continue } // spreads never hold the finish card nor key cards
     return c
   }
   return -1
 }
 
 // ---------- values & key ----------
-export function keepVals(pack: number[], S: number, L: number): number[] {
-  const kv = pack.map(c => 1 + ((rank(c) - 2) / 12) * 0.4)
-  let best = 0
-  let wins: number[] = []
-  for (let a = 2; a + L - 1 <= 13; a++) {
-    let h = 0
-    for (let r = a; r < a + L; r++) if (pack.some(c => suit(c) === S && rank(c) === r)) h++
-    if (h > best) { best = h; wins = [a] } else if (h === best && h > 0) wins.push(a)
-  }
-  pack.forEach((c, i) => {
-    if (suit(c) !== S) return
-    const r = rank(c)
-    kv[i] += best > 0 && wins.some(a => r >= a && r < a + L) ? 2.5 + 0.6 * best : 0.8
-  })
-  return kv
-}
-/** locks: the key ranks worth chasing (missing from the best runs; runs through the out-of-play lock card are dead) and the key ranks visible on the map */
+/** the key ranks worth chasing (missing from the best runs; runs through the out-of-play lock card are dead) and the key ranks visible on the map */
 export function lockWant(s: State): { want: Set<number>; vis: Set<number> } {
   const vis = new Set<number>()
   s.gc.forEach((c, i) => { if (s.gup[i] && isKeyCard(s, c)) vis.add(rank(c)) })
@@ -139,15 +120,14 @@ export function lockWant(s: State): { want: Set<number>; vis: Set<number> } {
   }
   return { want, vis }
 }
-/** keep-value of each hand card for the current mode (locks: a card whose rank opens a wanted key card is precious) */
+/** keep-value of each hand card: a card whose rank opens a wanted key card is precious */
 export function packVals(s: State): number[] {
-  if (!s.locks) return keepVals(s.pack, s.S, s.L)
   const { want, vis } = lockWant(s)
   return s.pack.map(c => 1 + ((rank(c) - 2) / 12) * 0.4 + (want.has(rank(c)) ? (vis.has(rank(c)) ? 3.5 : 1.2) : 0))
 }
 export function keyProgress(s: State): number {
   let best = 0
-  const src = s.locks ? s.keys : s.pack
+  const src = s.keys
   for (let a = 2; a + s.L - 1 <= 13; a++) {
     let h = 0
     for (let r = a; r < a + s.L; r++) if (src.some(c => suit(c) === s.S && rank(c) === r)) h++
@@ -223,12 +203,12 @@ export function canZoom(s: State) {
   const c = s.gc[4]
   return !busy(s) && !s.site && c >= 0 && s.gup[4] && s.gdone[4] === 0 && c !== s.vault && !isKeyCard(s, c) && s.pack.length >= zoomCost(s)
 }
-/** locks: once your key row holds the run, zooming out is free */
-export const scoutCost = (s: State) => (s.locks && hasKey(s) ? 0 : zoomCost(s))
+/** once your key row holds the run, zooming out is free */
+export const scoutCost = (s: State) => (hasKey(s) ? 0 : zoomCost(s))
 export const canScout = (s: State) => !busy(s) && !s.site && s.pack.length >= scoutCost(s) && s.gup.some((u, i) => !u && s.gc[i] >= 0)
 export const canMove = (s: State) => !busy(s) && !s.site
 export const canOpen = (s: State) => !busy(s) && !s.site && s.gc[4] === s.vault && hasKey(s)
-/** locks: the hand cards that can open the key card you stand on (same rank) */
+/** the hand cards that can open the key card you stand on (same rank) */
 export const claimers = (s: State) => (isKeyCard(s, s.gc[4]) ? s.pack.flatMap((c, i) => (rank(c) === rank(s.gc[4]) ? [i] : [])) : [])
 export const canClaim = (s: State) => !busy(s) && !s.site && claimers(s).length > 0
 
@@ -243,7 +223,7 @@ export function scout(s: State, pay: Pay): State | null {
   t.log.push(cs.length ? `Zoom OUT: spend ${cs.map(label).join(' + ')} to flip the whole map.` : 'Zoom OUT (free: you hold your key) to flip the whole map.')
   return settle(t)
 }
-/** locks: show a hand card of the same rank (you keep it) to move the key card you stand on into your key row */
+/** show a hand card of the same rank (you keep it) to move the key card you stand on into your key row */
 export function claim(s: State): State | null {
   if (!canClaim(s)) return null
   const t = cloneState(s)
@@ -288,7 +268,7 @@ export function move(s: State, d: number): State | null {
 function finishSite(t: State) {
   if (t.site!.done.every(Boolean)) {
     const r = t.gc[4]
-    t.log.push(`Everything taken: region ${label(r)} joins your pack.`)
+    t.log.push(`Everything taken: region ${label(r)} joins your hand.`)
     t.pack.push(r)
     t.gc[4] = -1
     t.gdone[4] = 2
@@ -328,7 +308,7 @@ export function discard(s: State, i: number): State | null {
   if (!overflow(s) || i < 0 || i >= s.pack.length) return null
   const t = cloneState(s)
   const [c] = spendPack(t, [i])
-  t.log.push(`Pack over ${LIMIT}: discard ${label(c)}.`)
+  t.log.push(`Hand over ${LIMIT}: discard ${label(c)}.`)
   return t
 }
 
@@ -338,7 +318,6 @@ export type Advice =
   | { kind: 'take'; j: number; pay: Pay } | { kind: 'leave' } | { kind: 'open' } | { kind: 'discard'; i: number } | { kind: 'claim' }
 export interface Tip { advice: Advice; text: string }
 
-const siteBonus = (c: number, S: number) => (suit(c) === S ? 2 : 0)
 function cellScore(s: State, i: number): number {
   const c = s.gc[i]
   if (c < 0) return 0
@@ -346,7 +325,7 @@ function cellScore(s: State, i: number): number {
   if (c === s.vault) return hasKey(s) ? 900 : keyProgress(s) >= 0.66 ? 8 : 2
   if (s.gdone[i]) return 0.5
   if (isKeyCard(s, c)) return !lockWant(s).want.has(rank(c)) ? 0.5 : s.pack.some(x => rank(x) === rank(c)) ? 40 : 3
-  return 4 + 1.6 * siteK(rank(c)) + siteBonus(c, s.S)
+  return 4 + 1.6 * siteK(rank(c))
 }
 const TARGET = [1, 7, 3, 5]
 const DISC = [[6, 7, 8], [0, 1, 2], [2, 5, 8], [0, 3, 6]]
@@ -355,7 +334,7 @@ export function advise(s: State): Tip | null {
   if (s.over) return null
   if (overflow(s)) {
     const i = lowestIdx(s)[0]
-    return { advice: { kind: 'discard', i }, text: `Your pack is over ${LIMIT}. Discard ${label(s.pack[i])}: it helps your key the least.` }
+    return { advice: { kind: 'discard', i }, text: `Your hand is over ${LIMIT}. Discard ${label(s.pack[i])}: it helps your key the least.` }
   }
   if (s.site) {
     let best = null as Tip | null
@@ -383,7 +362,7 @@ export function advise(s: State): Tip | null {
   if (canZoom(s)) consider(s.pack.length >= zoomCost(s) + 1 ? 5 + 1.6 * siteK(rank(s.gc[4])) : 1, { advice: { kind: 'zoom', pay: payZ }, text: `Zoom in on ${label(s.gc[4])} (pay ${payNames}): unexplored regions are where loot is.` })
   if (canScout(s)) {
     if (!scoutCost(s)) consider(vi < 0 ? 50 : -1, { advice: { kind: 'scout', pay: [] }, text: 'Zoom out (free now that you hold your key) to look for the finish card.' })
-    else consider(s.pack.length >= zoomCost(s) + 2 ? 0.55 * down : 0, { advice: { kind: 'scout', pay: payZ }, text: `Zoom out (pay ${payNames}) to see the whole map${s.locks ? ' and spot key cards' : ''} and find the finish card.` })
+    else consider(s.pack.length >= zoomCost(s) + 2 ? 0.55 * down : 0, { advice: { kind: 'scout', pay: payZ }, text: `Zoom out (pay ${payNames}) to see the whole map, spot key cards and find the finish card.` })
   }
   if (canMove(s)) {
     for (let d = 0; d < 4; d++) {
@@ -417,8 +396,8 @@ export function applyAdvice(s: State, a: Advice): State | null {
 export type Where = 'pack' | 'gone' | 'table' | 'vault' | 'unknown'
 export function whereIs(s: State, c: number): Where {
   if (c === s.vault) return 'vault'
-  if (s.pack.includes(c) || s.keys.includes(c)) return 'pack' // locks: 'pack' means the key row
-  if (s.locks && c === s.lock) return 'gone'
+  if (s.pack.includes(c) || s.keys.includes(c)) return 'pack' // 'pack' means the key row
+  if (c === s.lock) return 'gone'
   if (s.ashes.includes(c)) return 'gone'
   if (s.gc.some((x, i) => x === c && s.gup[i]) || s.site?.cards.includes(c)) return 'table'
   return 'unknown'
@@ -432,9 +411,9 @@ export function keyPlan(s: State): KeyPlan | null {
   for (let a = 2; a + s.L - 1 <= 13; a++) {
     const ranks = Array.from({ length: s.L }, (_, k) => a + k)
     const cardOf = (r: number) => (r - 2) * 4 + s.S
-    const have = ranks.filter(r => (s.locks ? s.keys : s.pack).includes(cardOf(r)))
+    const have = ranks.filter(r => s.keys.includes(cardOf(r)))
     const missing = ranks.filter(r => !have.includes(r))
-    const dead = missing.some(r => s.ashes.includes(cardOf(r)) || (s.locks && cardOf(r) === s.lock))
+    const dead = missing.some(r => s.ashes.includes(cardOf(r)) || cardOf(r) === s.lock)
     if (dead) continue
     // prefer more cards held, then more of the missing ones already visible on the table
     const visible = missing.filter(r => whereIs(s, cardOf(r)) === 'table').length

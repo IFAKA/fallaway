@@ -1,4 +1,4 @@
-// node scripts/guide-locks-shot.mjs — walk the real-deck guide through a locks setup and a claim on the running dev server
+// node scripts/guide-locks-shot.mjs — walk the real-deck guide through a setup and a claim on the running dev server
 // (URL=http://localhost:5299 by default); screenshots to /tmp/zoomcheck/guide-*.png
 import puppeteer from 'puppeteer-core'
 import fs from 'node:fs'
@@ -14,7 +14,7 @@ const btn = async (txt) => { const ok = await p.evaluate(t => { const e = [...do
 const pick = async (card) => { const ok = await p.evaluate(t => { const e = [...document.querySelectorAll('.pbtn')].find(e => e.textContent === t && !e.disabled); if (e) e.click(); return !!e }, card); if (!ok) throw new Error('no picker card ' + card); await wait(250) }
 const shot = async (n) => { await wait(900); await p.screenshot({ path: `/tmp/zoomcheck/guide-${n}.png` }) }
 await shot('0-intro')
-await btn('Start setup: Locks'); await pick('7♣'); await btn('Done')
+await btn('Start setup'); await pick('7♣'); await btn('Done')
 await pick('3♣'); await shot('1-keycard-refused') // a key card dealt to the hand: refused
 for (const c of ['9♦', '2♥', 'K♠', '5♦', 'Q♥', '4♠', '8♥', '10♦']) await pick(c)
 await pick('9♣'); await shot('2-hide') // middle map card

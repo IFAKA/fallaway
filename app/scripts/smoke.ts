@@ -1,10 +1,9 @@
-// bun scripts/smoke.ts [games]  — plays N games with the advisor; should land near the sim's ~44%.
+// bun scripts/smoke.ts [games]  — plays N games with the advisor; should land near the sim's ~40%.
 import { advise, applyAdvice, newGame } from '../src/engine'
 const N = +(process.argv[2] ?? 2000)
-const LOCKS = process.argv[3] === 'locks' // bun scripts/smoke.ts 2000 locks  — the locks experiment; sim says ~40%
 let win = 0, steps = 0, endless = 0
 for (let seed = 1; seed <= N; seed++) {
-  let s = newGame(seed, LOCKS), guard = 0
+  let s = newGame(seed), guard = 0
   while (!s.over && guard++ < 600) {
     const tip = advise(s)
     if (!tip) break

@@ -6,7 +6,6 @@ import * as G from '../src/guide'
 
 const N = +(process.argv[2] ?? 2000)
 const only = process.argv[3] ? +process.argv[3] : null
-const LOCKS = !!process.env.LOCKS // LOCKS=1 bun scripts/guide-smoke.ts — the locks rules
 const eq = (a: unknown, b: unknown, what: string, seed: number, step: number) => {
   if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`MISMATCH seed ${seed} step ${step}: ${what}\n guide=${JSON.stringify(a)}\n engine=${JSON.stringify(b)}`)
 }
@@ -14,10 +13,10 @@ const must = <T,>(x: T | null, what: string): T => { if (x === null) throw new E
 
 let win = 0, lose = 0, endless = 0
 for (let seed = only ?? 1; seed <= (only ?? N); seed++) {
-  let e = E.newGame(seed, LOCKS)
+  let e = E.newGame(seed)
   let g = G.newG()
-  g = must(G.nextStep(g, LOCKS), 'intro'); g = must(G.setLock(g, e.lock), 'lock'); g = must(G.nextStep(g), 'vault')
-  if (LOCKS) { // a key card dealt to the hand is sent back, not kept
+  g = must(G.nextStep(g), 'intro'); g = must(G.setLock(g, e.lock), 'lock'); g = must(G.nextStep(g), 'vault')
+  { // a key card dealt to the hand is sent back, not kept
     const k = e.draw.find(c => E.isKeyCard(e, c))
     if (k !== undefined) { const g2 = must(G.enterPack(g, k), 'key card in hand'); eq(g2.pack.length, 0, 'key card refused', seed, -1); g = g2 }
   }
@@ -32,8 +31,8 @@ for (let seed = only ?? 1; seed <= (only ?? N); seed++) {
       if (need.kind === 'cell') g = must(G.enterCell(g, need.i, e.gc[need.i]), 'cell')
       else if (need.kind === 'spread') {
         const sc = e.site?.cards ?? [], i = g.site!.cards.length
-        // locks: sometimes a key card turns up first and goes back under the pile (the engine did this silently)
-        const skip = LOCKS && !faked && g.pile >= 2 && seed % 3 === 0 ? e.draw.find(c => E.isKeyCard(e, c)) : undefined
+        // sometimes a key card turns up first and goes back under the pile (the engine did this silently)
+        const skip = !faked && g.pile >= 2 && seed % 3 === 0 ? e.draw.find(c => E.isKeyCard(e, c)) : undefined
         if (skip !== undefined) { faked = true; g = must(G.enterSpread(g, skip), 'spread skip'); continue }
         // the engine dealt fewer cards: every card left in the pile is one that cannot be in a spread; flip them in turn
         g = must(G.enterSpread(g, i < sc.length ? sc[i] : e.draw[e.draw.length - 1 - (extra++ % e.draw.length)]), 'spread')
