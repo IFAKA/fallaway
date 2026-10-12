@@ -12,6 +12,8 @@ const PILE = { x: 380, y: 46 }
 const BEHIND = { x: 460, y: 46 }
 const GONE = { x: 540, y: 46 }
 const LOCK = { x: 620, y: 46 }
+const KEYROW = { x: 380, y: 200, w: 330 } // locks: claimed key cards, face-up
+const keyPos = (k: number, n: number) => ({ x: KEYROW.x + k * (n > 1 ? Math.min(68, (KEYROW.w - CW) / (n - 1)) : 68), y: KEYROW.y })
 const SPREAD = { y: 410, h: 170 }
 const PACKZ = { y: 600, h: 138 }
 const STAGE = { w: 720, h: 750 }
@@ -90,14 +92,17 @@ export default function GuideStage(p: StageProps) {
     onClick: p.clickable ? () => p.onHand(i) : undefined,
   }))
   if (showMap) {
+    const keys = [...g.keys].sort((a, b) => a - b)
+    keys.forEach((c, k) => add({ key: `c${c}`, c, mode: 'up', ...keyPos(k, keys.length) }))
     g.grid.forEach((x, i) => {
       if (x.gap) return
+      const locked = x.up && x.c !== null && g.locks && suit(x.c) === g.S && x.c !== g.vault
       add({
         key: x.c !== null ? `c${x.c}` : `u${x.id}`, alt: `u${x.id}`, c: x.c, ...cellPos(i),
         mode: !x.up ? 'down' : x.c === null ? 'unknown' : 'up',
         selected: p.cellTarget === i,
-        glow: (adv?.kind === 'zoom' || adv?.kind === 'open') && i === 4,
-        tag: x.c === g.vault && x.up ? 'FINISH' : x.done ? '✓' : undefined,
+        glow: (adv?.kind === 'zoom' || adv?.kind === 'open' || adv?.kind === 'claim') && i === 4,
+        tag: x.c === g.vault && x.up ? 'FINISH' : locked ? `🔒 any ${rankLabel(rank(x.c!))}${g.pack.some(c => rank(c) === rank(x.c!)) ? ' ✓' : ''}` : x.done ? '✓' : undefined,
         onClick: p.need?.kind === 'cell' && x.up && x.c === null ? () => p.onCell(i) : undefined,
       })
     })
@@ -164,6 +169,10 @@ export default function GuideStage(p: StageProps) {
               <div className="pip">{SUITS[suit(topAsh)]}</div>
             </div>}
         <div className="piletxt" style={{ left: GONE.x, top: GONE.y + CH + 4 }}>gone ({g.ashes.length})</div>
+        {g.locks && <>
+          <div className="zone keyzone" style={{ left: KEYROW.x - 8, top: KEYROW.y - 8, width: KEYROW.w + 16, height: CH + 16 }} />
+          <div className="piletxt" style={{ left: KEYROW.x, top: KEYROW.y + CH + 10, width: KEYROW.w, textAlign: 'left' }}>key row ({g.keys.length}): safe, never spent</div>
+        </>}
         {g.site?.cards.map((c, j) => {
           const k = suit(c), done = g.site!.done[j]
           const price = k === 1 || k === 2 ? 'free' : k === 3 ? `swap 1 ${isRed(c) ? 'red' : 'black'} or any 2` : `pay power ≥ ${strength(c)}`
@@ -171,7 +180,7 @@ export default function GuideStage(p: StageProps) {
         })}
       </>}
       <div className="zone label" style={{ left: 0, top: PACKZ.y - 6, width: STAGE.w, height: PACKZ.h }}>
-        <span>Your hand ({g.pack.length}/{LIMIT}) — the same cards you hold</span>
+        <span>Your hand ({g.pack.length}/{LIMIT}) — the same cards you hold{g.locks ? ': tools (fuel, power, and ranks that open key cards)' : ''}</span>
       </div>
       <AnimatePresence custom={{ dest }}>
         {info.map(({ it, from, delay }) => <StageCard key={it.key} it={it} from={from} delay={delay} />)}

@@ -77,3 +77,4 @@ The careful bot is a first draft for these rules, so the real skill gap is proba
 Skill per decision with locks (start 8, 10000 games; careful bot, one decision swapped for the beginner's; `SIMPLE=... node sim.mjs mix`):
 careful 39.9% | where to move 17.4% | when to zoom 15.7% | what to keep/pay with 6.9% | which locks to open 40.4% (no decision) | endgame 39.9% (no decision) | beginner 17.4%.
 Moving, zooming and keeping the right ranks are all real skill now; claiming and the free zoom-out are automatic.
+Playable in the web app: Practice -> "Rules: Locks (experiment)" (or `?seed=N&locks=1`), and with a real deck: "Play with a real deck (guide)" -> "Start setup: Locks" (start 8 cards, pile 34).

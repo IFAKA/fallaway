@@ -161,3 +161,4 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .locksbox ul { margin: 6px 0 0; padding-left: 20px; }
 .stage .keyrow { max-width: none; }
 .ctag { white-space: nowrap; }
+.stage .keyzone { border: 1px dashed #6fe0a3; border-radius: 8px; }
