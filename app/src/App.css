@@ -154,3 +154,10 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .gcard .ctag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font-size: 10px; font-weight: 800; background: #7a3fd1; color: #fff; border-radius: 8px; padding: 1px 6px; border: 1px solid #fff; }
 .panel .advice { flex: none; }
 .lock { display: inline-flex; align-items: center; gap: 8px; }
+/* locks mode */
+.stage .keyrow { border: 1px dashed #6fe0a3; border-radius: 8px; padding: 4px 6px; min-height: 52px; }
+.chip.big { font-size: 15px; padding: 3px 7px; }
+.locksbox { background: #0a2d20; border: 1px solid #2f7a5c; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+.locksbox ul { margin: 6px 0 0; padding-left: 20px; }
+.stage .keyrow { max-width: none; }
+.ctag { white-space: nowrap; }

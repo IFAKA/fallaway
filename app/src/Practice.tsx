@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  LIMIT, SUITS, SUIT_ROLE, advise, applyAdvice, canMove, canOpen, canScout, canZoom, cheapestPay, discard, hasKey, isRed,
-  keyPlan, keyProgress, label, leave, canLeave, move, newGame, open, overflow, power, rank, rankLabel, scout, siteK, strength, suit, take, validTake,
+  LIMIT, SUITS, SUIT_ROLE, advise, applyAdvice, canClaim, canMove, canOpen, canScout, canZoom, cheapestPay, claim, claimers, discard, hasKey, isKeyCard, isRed,
+  keyPlan, keyProgress, label, leave, canLeave, move, newGame, open, overflow, power, rank, rankLabel, scout, scoutCost, siteK, strength, suit, take, validTake,
   vaultCell, whereIs, zoom, zoomCost,
 } from './engine'
 import type { Advice, State } from './engine'
@@ -15,10 +15,17 @@ interface Saved { seed: number; history: State[] }
 type Pending = { kind: 'zoom' | 'scout' } | { kind: 'take'; j: number } | null
 
 function load(): Saved | null {
-  try { const s = localStorage.getItem(KEY); return s ? (JSON.parse(s) as Saved) : null } catch { return null }
+  try {
+    const s = localStorage.getItem(KEY)
+    if (!s) return null
+    const v = JSON.parse(s) as Saved
+    v.history = v.history.map(h => ({ ...h, locks: h.locks ?? false, keys: h.keys ?? [] })) // saves from before locks mode
+    return v
+  } catch { return null }
 }
 const freshSeed = () => 1 + Math.floor(Math.random() * 999999)
 const urlSeed = () => { const v = new URLSearchParams(location.search).get('seed'); return v ? +v : null }
+const urlLocks = () => new URLSearchParams(location.search).get('locks') === '1'
 
 // ---------- the stage: every card lives in ONE coordinate space, so it slides, flips and flies off instead of jumping ----------
 const CH = 88
@@ -27,6 +34,8 @@ const PILE = { x: 380, y: 46 }
 const BEHIND = { x: 470, y: 46 }
 const GONE = { x: 380, y: 170, w: 320 }
 const LOCK = { x: 560, y: 46 }
+const KEYROW = { x: 380, y: 160, w: 320 } // locks mode: the key row takes the gone box's spot; the gone box moves down
+const GONE_LOCKS_Y = 235
 const SPREAD = { y: 410, h: 170 }
 const PACKZ = { y: 600, h: 138 }
 const STAGE = { w: 720, h: 750 }
@@ -82,6 +91,14 @@ function keyLine(s: State): ReactNode {
   const sym = SUITS[s.S]
   if (!plan || plan.dead) return <>Your key looks <B>impossible</B>: too many {sym} cards are gone for good. Try for the best you can.</>
   const cardOf = (r: number) => (r - 2) * 4 + s.S
+  if (s.locks && plan.missing.length) {
+    const miss = plan.missing.map(r => {
+      const onMap = s.gc.some((c, i) => c === cardOf(r) && s.gup[i])
+      const hold = s.pack.some(c => rank(c) === r)
+      return `${rankLabel(r)}${sym} (${onMap ? (hold ? `on the map, you hold a ${rankLabel(r)}: go claim it` : `on the map, find any ${rankLabel(r)} in a spread`) : 'not on the map yet'})`
+    }).join(', ')
+    return <>Your key row needs <B>{L}</B> in a row of {sym}. Closest run: <B>{plan.ranks.map(r => rankLabel(r) + sym).join(' ')}</B>: you have {plan.have.length}/{L}; missing {miss}.</>
+  }
   if (!plan.missing.length) return <>You <B>hold the key</B>: {plan.ranks.map(r => rankLabel(r) + sym).join(' ')}. Now wait for the finish card <B>A{sym}</B> to show up on the map and move so it is the <B>middle card</B>.</>
   const missTxt = plan.missing.map(r => {
     const w = whereIs(s, cardOf(r))
@@ -123,11 +140,15 @@ function Guide({ s, pending, sel, over, tipOn }: { s: State; pending: Pending; s
     body = <>
       <div className="keyline">{keyLine(s)}</div>
       <ol className="gl">
-        {first && <li>You are standing on the <B>outlined middle card</B> ({lbl(here)}). <B>Zoom IN</B> on it — pay {cost} pack card{cost > 1 ? 's' : ''} to spread {siteK(rank(here))} card{siteK(rank(here)) > 1 ? 's' : ''} from the pile and see what is inside.</li>}
+        {s.locks && isKeyCard(s, here) && (canClaim(s)
+          ? <li>You stand on the key card {lbl(here)}. <B>Claim</B> it: show your {lbl(s.pack[claimers(s)[0]])} (you keep it) and {lbl(here)} moves to your key row.</li>
+          : <li>You stand on the key card {lbl(here)}. It is locked: it opens with <B>any {rankLabel(rank(here))}</B> from your hand, and you have none. Spreads never hold key cards, but they do hold {rankLabel(rank(here))}s of other suits.</li>)}
+        {s.locks && first && !isKeyCard(s, here) && <li><B>Key cards ({sym}) only appear on the map</B>, each locked by its rank. Explore the map to find them; zoom in to find the ranks that open them.</li>}
+        {first && canZoom(s) && <li>You are standing on the <B>outlined middle card</B> ({lbl(here)}). <B>Zoom IN</B> on it — pay {cost} pack card{cost > 1 ? 's' : ''} to spread {siteK(rank(here))} card{siteK(rank(here)) > 1 ? 's' : ''} from the pile and see what is inside.</li>}
         {!first && canZoom(s) && <li>You stand on an unexplored region ({lbl(here)}, spread of {siteK(rank(here))}). <B>Zoom IN</B> to look inside (pay {cost}).</li>}
-        {!first && !canZoom(s) && <li>This spot is done. <B>Move</B> to another region with the arrows (free) — higher cards (J, Q, K, A) hold bigger spreads.</li>}
+        {!first && !canZoom(s) && !isKeyCard(s, here) && <li>This spot is done. <B>Move</B> to another region with the arrows (free) — higher cards (J, Q, K, A) hold bigger spreads.</li>}
         {hasKey(s) && vi >= 0 && <li>You have the key and the finish card is on the map (gold tag): <B>move until it is the middle card</B>, then press <B>Finish the game</B>.</li>}
-        {hasKey(s) && vi < 0 && <li>You have the key but have not seen the finish card A{sym} yet: <B>Zoom OUT</B> (pay {cost}) to flip the whole map, or keep moving.</li>}
+        {hasKey(s) && vi < 0 && <li>You have the key but have not seen the finish card A{sym} yet: <B>Zoom OUT</B> ({scoutCost(s) ? `pay ${cost}` : 'free now'}) to flip the whole map, or keep moving.</li>}
         {!hasKey(s) && vi < 0 && s.gup.some((u, i) => !u && s.gc[i] >= 0) && <li>You can <B>Zoom OUT</B> (pay {cost}) to flip every region and plan where to go.</li>}
         <li>Moving is free, but it slides the whole window: the far side drops into <B>Behind</B> and new cards come from the <B>Pile</B>. When the pile is empty the world re-shuffles and a new lap starts (now lap {s.recycles + 1}: zooming costs {cost}).</li>
       </ol>
@@ -142,11 +163,23 @@ function Guide({ s, pending, sel, over, tipOn }: { s: State; pending: Pending; s
   )
 }
 
-function Intro({ onClose }: { onClose: () => void }) {
+function Intro({ onClose, locks }: { onClose: () => void; locks: boolean }) {
   return (
     <div className="modal">
       <div className="card-modal">
         <h2>How to play Zoom</h2>
+        {locks && (
+          <div className="locksbox">
+            <b>You are playing the LOCKS rules (experiment).</b> Same game, with these changes:
+            <ul>
+              <li><B>Key cards only live on the map.</B> Spreads never hold them (and none start in your hand). Explore the map to find them.</li>
+              <li><B>Each key card is locked by its rank.</B> Stand on it and <B>show</B> any card of the same rank from your hand (e.g. any 7 opens 7♥). You keep the shown card.</li>
+              <li>Claimed key cards go to your <B>key row</B>: safe, never spent, not counted in your hand limit. Your hand is only tools.</li>
+              <li>You can't zoom in on a key card. Zoom in on other regions to find the ranks you need.</li>
+              <li>You start with <B>8 cards</B>. Once your key row holds the run, <B>zooming out is free</B>.</li>
+            </ul>
+          </div>
+        )}
         <ol className="steps">
           <li><B>The goal.</B> A <i>lock card</i> (top left) tells you a suit, e.g. “need 4 in a row of ♣”. Collect <B>4 consecutive ranks of that suit</B> (like 9♣ 10♣ J♣ Q♣) in your pack — your <B>key</B> — then move until the Ace of that suit (the <B>finish card</B>) is the <B>middle card</B> of the map, the one you stand on. If you hold your key at that moment, you win.</li>
           <li><B>Your pack</B> (bottom) is two things at once: <B>fuel</B> — zooming costs a card, and spent cards are gone for good — and <B>key pieces</B> — cards of the key suit are marked “key”. Spend the cards that are not your suit.</li>
@@ -167,7 +200,7 @@ export default function Practice() {
   const saved = useMemo(() => load(), [])
   const [history, setHistory] = useState<State[]>(() => {
     const us = urlSeed()
-    if (us) return [newGame(us)]
+    if (us) return [newGame(us, urlLocks())]
     return saved?.history?.length ? saved.history : [newGame(freshSeed())]
   })
   const [pending, setPending] = useState<Pending>(null)
@@ -183,7 +216,7 @@ export default function Practice() {
   const closeIntro = () => { try { localStorage.setItem(SEEN, '1') } catch { /* ignore */ } setIntro(false) }
 
   const push = (n: State | null, dir: number | null = null) => { if (n) { setDir(dir); setHistory(h => [...h, n]); setPending(null); setSel([]) } }
-  const reset = (seed: number) => { setDir(null); setHistory([newGame(seed)]); setPending(null); setSel([]) }
+  const reset = (seed: number, locks = s.locks) => { setDir(null); setHistory([newGame(seed, locks)]); setPending(null); setSel([]) }
   const undo = () => { if (history.length > 1) { setHistory(h => h.slice(0, -1)); setPending(null); setSel([]) } }
 
   const over = overflow(s)
@@ -191,14 +224,16 @@ export default function Practice() {
   const adv: Advice | undefined = tip?.advice
   const ready = !s.over && !over && !s.site && !pending
   const cost = zoomCost(s)
-  const canConfirm = pending?.kind === 'take' ? validTake(s, pending.j, sel) : !!pending && sel.length === cost
+  const sCost = scoutCost(s)
+  const canConfirm = pending?.kind === 'take' ? validTake(s, pending.j, sel) : !!pending && sel.length === (pending.kind === 'scout' ? sCost : cost)
+  const zoomOut = () => (sCost ? setPending({ kind: 'scout' }) : push(scout(s, [])))
 
   const clickPack = (i: number) => {
     if (s.over) return
     if (over) return push(discard(s, i))
     if (!pending) return
     if (cost === 1 && pending.kind === 'zoom') return push(zoom(s, [i]))
-    if (cost === 1 && pending.kind === 'scout') return push(scout(s, [i]))
+    if (sCost === 1 && pending.kind === 'scout') return push(scout(s, [i]))
     setSel(x => (x.includes(i) ? x.filter(y => y !== i) : [...x, i]))
   }
   const clickSite = (j: number) => {
@@ -211,7 +246,7 @@ export default function Practice() {
   const clickCell = (i: number) => {
     if (!ready) return
     const dir = [-1, 0, -1, 2, -1, 3, -1, 1, -1][i]
-    if (i === 4) { if (canZoom(s)) setPending({ kind: 'zoom' }); else if (canOpen(s)) push(open(s)) }
+    if (i === 4) { if (canZoom(s)) setPending({ kind: 'zoom' }); else if (canClaim(s)) push(claim(s)); else if (canOpen(s)) push(open(s)) }
     else if (dir >= 0 && canMove(s)) push(move(s, dir), dir)
   }
 
@@ -222,9 +257,10 @@ export default function Practice() {
   s.gc.forEach((c, i) => {
     if (c < 0) return
     const { x, y } = cellPos(i)
+    const lockTag = s.gup[i] && isKeyCard(s, c) ? `🔒 any ${rankLabel(rank(c))}${s.pack.some(x => rank(x) === rank(c)) ? ' ✓' : ''}` : undefined
     placed.push({
-      id: c, x, y, zone: 'map', dir, down: !s.gup[i], dim: s.gdone[i] > 0 || !!s.site, glow: (adv?.kind === 'zoom' || adv?.kind === 'open') && i === 4,
-      tag: c === s.vault && s.gup[i] ? 'FINISH' : s.gdone[i] ? '✓' : undefined, onClick: ready ? () => clickCell(i) : undefined,
+      id: c, x, y, zone: 'map', dir, down: !s.gup[i], dim: s.gdone[i] > 0 || !!s.site, glow: (adv?.kind === 'zoom' || adv?.kind === 'open' || adv?.kind === 'claim') && i === 4,
+      tag: c === s.vault && s.gup[i] ? 'FINISH' : lockTag ?? (s.gdone[i] ? '✓' : undefined), onClick: ready ? () => clickCell(i) : undefined,
     })
   })
   s.site?.cards.forEach((c, j) => {
@@ -241,7 +277,7 @@ export default function Practice() {
       onClick: (pending || over) && !s.over ? () => clickPack(i) : undefined,
     })
   })
-  const dest = (id: number) => (s.ashes.includes(id) ? { x: GONE.x + 120, y: GONE.y } : dir === null ? { x: BEHIND.x, y: BEHIND.y } : null)
+  const dest = (id: number) => (s.ashes.includes(id) ? { x: GONE.x + 120, y: s.locks ? GONE_LOCKS_Y : GONE.y } : s.keys.includes(id) ? { x: KEYROW.x + 120, y: KEYROW.y } : dir === null ? { x: BEHIND.x, y: BEHIND.y } : null)
 
   const arrows = [
     { d: 0, ch: '▲', style: { left: MAP.w / 2 - 20, top: 8 } },
@@ -254,7 +290,7 @@ export default function Practice() {
 
   return (
     <div className="play">
-      {intro && <Intro onClose={closeIntro} />}
+      {intro && <Intro onClose={closeIntro} locks={s.locks} />}
       <div className="boardcol">
         <div className="topbar">
           <span className="lock">
@@ -264,6 +300,7 @@ export default function Practice() {
           <span className="stat">Behind <b>{s.behind.length}</b></span>
           <span className={`stat ${cost >= 3 ? 'warn' : ''}`}>Lap <b>{s.recycles + 1}</b> · zoom costs <b>{cost}</b></span>
           <span className="grow" />
+          <button className={s.locks ? 'on' : ''} title="Switch rules (starts a new game)" onClick={() => { reset(freshSeed(), !s.locks); setIntro(!s.locks) }}>Rules: {s.locks ? 'Locks (experiment)' : 'Classic'}</button>
           <button onClick={() => setIntro(true)}>? How to play</button>
           <button onClick={undo} disabled={history.length < 2}>Undo</button>
           <button onClick={() => reset(s.seed)}>Restart</button>
@@ -278,12 +315,13 @@ export default function Practice() {
             return <span key={r} className={`kchip ${w}`} title={w}>{rankLabel(r)}</span>
           })}
           <span className={`kchip vault ${whereIs(s, s.vault)}`} title="the finish card">A</span>
-          <span className="muted klegend"><i className="kchip pack">in pack</i><i className="kchip table">on table</i><i className="kchip unknown">hidden</i><i className="kchip gone">gone</i></span>
+          <span className="muted klegend"><i className="kchip pack">{s.locks ? 'in key row' : 'in pack'}</i><i className="kchip table">on table</i><i className="kchip unknown">hidden</i><i className="kchip gone">gone</i></span>
         </div>
 
         <div className="actions">
           <button className={`big ${adv?.kind === 'zoom' ? 'glow' : ''}`} disabled={!ready || !canZoom(s)} onClick={() => setPending({ kind: 'zoom' })}>Zoom IN (pay {cost})</button>
-          <button className={adv?.kind === 'scout' ? 'glow' : ''} disabled={!ready || !canScout(s)} onClick={() => setPending({ kind: 'scout' })}>Zoom OUT (pay {cost})</button>
+          {s.locks && <button className={`big ${adv?.kind === 'claim' ? 'glow' : ''}`} disabled={!ready || !canClaim(s)} onClick={() => push(claim(s))}>Claim key card</button>}
+          <button className={adv?.kind === 'scout' ? 'glow' : ''} disabled={!ready || !canScout(s)} onClick={zoomOut}>Zoom OUT ({sCost ? `pay ${sCost}` : 'free'})</button>
           <button className={`big ${adv?.kind === 'open' ? 'glow' : ''}`} disabled={!ready || !canOpen(s)} onClick={() => push(open(s))}>Finish the game</button>
           {s.site && <button className={adv?.kind === 'leave' ? 'glow' : ''} disabled={!!over || !canLeave(s)} title="Only when you cannot pay for anything left" onClick={() => push(leave(s))}>Done: can't pay for the rest</button>}
           {pending && <button onClick={() => { setPending(null); setSel([]) }}>Cancel</button>}
@@ -302,7 +340,7 @@ export default function Practice() {
         <div className="stage" style={{ width: STAGE.w, height: STAGE.h }}>
           <div className="zone" style={{ left: 0, top: 0, width: MAP.w, height: MAP.h }} />
           <div className="zone label" style={{ left: 0, top: SPREAD.y - 6, width: STAGE.w, height: SPREAD.h }}><span>{s.site ? `Inside ${label(s.gc[4])} — click a card to take it` : 'Zoom in on the middle card to fill this spread'}</span></div>
-          <div className="zone label" style={{ left: 0, top: PACKZ.y - 6, width: STAGE.w, height: PACKZ.h }}><span>Your pack ({s.pack.length}/{LIMIT}) — fuel AND key pieces</span></div>
+          <div className="zone label" style={{ left: 0, top: PACKZ.y - 6, width: STAGE.w, height: PACKZ.h }}><span>{s.locks ? `Your hand (${s.pack.length}/${LIMIT}): tools (fuel, power, and ranks that open key cards)` : `Your pack (${s.pack.length}/${LIMIT}) — fuel AND key pieces`}</span></div>
           <div className="cellframe" style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6 }} />
           {arrows.map(a => (
             <button key={a.d} className={`arrow ${adv?.kind === 'move' && adv.d === a.d ? 'glow' : ''}`} style={a.style} disabled={!ready} onClick={() => push(move(s, a.d), a.d)} title="Move (free)">{a.ch}</button>
@@ -316,10 +354,17 @@ export default function Practice() {
             <div className="pip">{SUITS[suit(s.lock)]}</div>
           </div>
           <div className="piletxt" style={{ left: LOCK.x, top: LOCK.y + CH + 4 }}>lock</div>
-          <div className="gonebox" style={{ left: GONE.x, top: GONE.y + 20, width: GONE.w }}>
+          <div className="gonebox" style={{ left: GONE.x, top: s.locks ? GONE_LOCKS_Y : GONE.y + 20, width: GONE.w }}>
             <div className="muted">gone for good ({s.ashes.length})</div>
             {goneSorted.map(c => <span key={c} className={`chip ${isRed(c) ? 'red' : ''}`}>{label(c)}</span>)}
           </div>
+          {s.locks && (
+            <div className="gonebox keyrow" style={{ left: KEYROW.x, top: KEYROW.y, width: KEYROW.w }}>
+              <div className="muted">key row: safe, never spent ({s.keys.length})</div>
+              {[...s.keys].sort((a, b) => a - b).map(c => <span key={c} className={`chip big ${isRed(c) ? 'red' : ''}`}>{label(c)}</span>)}
+              {!s.keys.length && <span className="muted">claim key cards from the map</span>}
+            </div>
+          )}
           {s.site?.cards.map((c, j) => {
             const k = suit(c), done = s.site!.done[j]
             const price = k === 1 || k === 2 ? 'free' : k === 3 ? `swap 1 ${isRed(c) ? 'red' : 'black'} or any 2` : `pay power ≥ ${strength(c)}`
