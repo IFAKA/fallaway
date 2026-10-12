@@ -16,17 +16,6 @@ function load(): G[] | null {
 }
 const POS = ['top-left', 'top-middle', 'top-right', 'middle-left', 'MIDDLE', 'middle-right', 'bottom-left', 'bottom-middle', 'bottom-right']
 
-function Card({ c, down, glow, selected, onClick, tag, small }: { c?: number | null; down?: boolean; glow?: boolean; selected?: boolean; onClick?: () => void; tag?: string; small?: boolean }) {
-  if (c === undefined || c === null || down) return <div className={`gcard back ${selected ? 'selected' : ''} ${small ? 'small' : ''}`} onClick={onClick}>{c === null && !down ? '?' : ''}</div>
-  return (
-    <div className={`gcard face ${isRed(c) ? 'red' : 'black'} ${selected ? 'selected' : ''} ${glow ? 'glow' : ''} ${onClick ? 'clickable' : ''}`} onClick={onClick}>
-      <div className="corner">{rankLabel(rank(c))}<br />{SUITS[suit(c)]}</div>
-      <div className="pip">{SUITS[suit(c)]}</div>
-      {tag && <span className="ctag">{tag}</span>}
-    </div>
-  )
-}
-
 function Picker({ taken, noAces, onPick }: { taken: Set<number>; noAces?: boolean; onPick: (c: number) => void }) {
   return (
     <div className="picker">

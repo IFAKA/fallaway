@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { LIMIT, SUITS, isRed, label, rank, rankLabel, strength, suit } from './engine'
+import { LIMIT, SUITS, isRed, rank, rankLabel, strength, suit } from './engine'
 import type { Advice } from './engine'
 import type { G, Need } from './guide'
 
