@@ -1,0 +1,17 @@
+// node scripts/flow.mjs — click through: zoom in (pay a card), then screenshot the spread + guide.
+import puppeteer from 'puppeteer-core'
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox'] })
+const p = await b.newPage()
+await p.setViewport({ width: 1300, height: 950 })
+await p.evaluateOnNewDocument(() => localStorage.setItem('zoom-mode', 'practice'))
+await p.goto('http://localhost:5199/?seed=7', { waitUntil: 'networkidle0' })
+const sleep = (t) => new Promise(r => setTimeout(r, t))
+await sleep(1000)
+const clickText = (sel, text) => p.evaluate((sel, text) => [...document.querySelectorAll(sel)].find(e => e.textContent.includes(text))?.click(), sel, text)
+await clickText('button', 'Zoom IN'); await sleep(300)
+await p.screenshot({ path: '/tmp/shots/f1-paying.png' })
+// click first pack card (stage cards in the pack zone are those with y > 580 from stage top)
+await p.evaluate(() => { const st = document.querySelector('.stage').getBoundingClientRect(); const c = [...document.querySelectorAll('.stage .acard')].find(e => e.getBoundingClientRect().y - st.y > 600); c.click() })
+await sleep(1500)
+await p.screenshot({ path: '/tmp/shots/f2-spread.png' })
+await b.close()
