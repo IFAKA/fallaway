@@ -74,3 +74,6 @@ Idea: macro (the map) shows what you need, micro (spreads) gives what opens it.
 Results (`LOCK_OUT=1 LOCKS=1 CLAIM_SHOW=1 FREE_SCOUT_KEYED=1 LIMIT=10 PACK_START=n`, 5000 games; careful vs beginner):
 paying the rank instead of showing it, no free zoom-out: 6% vs 4% | show, start 5: 28.5% vs 13.5% | start 7: 36.8% vs 15.8% (20000 games) | **start 8: 40.5% vs 17.4%** | start 9: 42.1% vs 16.2%. Random 0%.
 The careful bot is a first draft for these rules, so the real skill gap is probably larger.
+Skill per decision with locks (start 8, 10000 games; careful bot, one decision swapped for the beginner's; `SIMPLE=... node sim.mjs mix`):
+careful 39.9% | where to move 17.4% | when to zoom 15.7% | what to keep/pay with 6.9% | which locks to open 40.4% (no decision) | endgame 39.9% (no decision) | beginner 17.4%.
+Moving, zooming and keeping the right ranks are all real skill now; claiming and the free zoom-out are automatic.

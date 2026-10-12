@@ -601,8 +601,19 @@ function obviousMove(s, moves, R) {
     : s.gup[i] ? rank(s.gc[i]) : 1) + R() * 0.1;
   return moves.reduce((b, m) => (val(TARGET[m.d]) > val(TARGET[b.d]) ? m : b));
 }
+// Skill check: careful bot, but SIMPLE=nav,zoom,claim,end swaps those decisions for the beginner's (pay: use ABL=pay-n).
+const SIMPLE = new Set((process.env.SIMPLE ?? '').split(',').filter(Boolean));
+function mixAct(s, acts, R) {
+  if (s.site || acts.some((a) => a.t === 'open')) return heurAct(s, acts, R);
+  if (hasKey(s)) return SIMPLE.has('end') ? obviousAct(s, acts, R) : heurAct(s, acts, R);
+  const h = heurAct(s, acts, R), moves = acts.filter((a) => a.t === 'move');
+  if (acts.some((a) => a.t === 'claim') && (SIMPLE.has('claim') || h.t === 'claim')) return { t: 'claim' };
+  if (SIMPLE.has('zoom')) { const z = acts.find((a) => a.t === 'zoom'); if (z) return z; }
+  else if (h.t === 'zoom' || h.t === 'scout') return h;
+  return SIMPLE.has('nav') ? obviousMove(s, moves, R) : heurAct(s, moves, R);
+}
 const noisy = (e) => (s, acts, R) => (R() < e ? randAct(s, acts, R) : heurAct(s, acts, R));
-const POLICIES = { random: randAct, heur: heurAct, mc: mcAct, obvious: obviousAct, heur10: noisy(0.1), heur25: noisy(0.25), heur50: noisy(0.5), heur05: noisy(0.05), abl: ablAct,
+const POLICIES = { random: randAct, heur: heurAct, mc: mcAct, obvious: obviousAct, mix: mixAct, heur10: noisy(0.1), heur25: noisy(0.25), heur50: noisy(0.5), heur05: noisy(0.05), abl: ablAct,
   ablN: (s, acts, R) => (R() < +(process.env.NOISE ?? 0.1) ? randAct(s, acts, R) : ablAct(s, acts, R)) };
 
 // ---------- running ----------
