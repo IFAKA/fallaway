@@ -11,7 +11,7 @@ export default function App() {
   return (
     <>
       <div className="modes">
-        <b className="title">Zoom</b>
+        <b className="title">Fallaway</b>
         <button className={mode === 'practice' ? 'on' : ''} onClick={() => pick('practice')}>Play on screen</button>
         <button className={mode === 'guide' ? 'on' : ''} onClick={() => pick('guide')}>Play with a real deck</button>
       </div>

@@ -1,4 +1,4 @@
-# Zoom — design notes
+# Fallaway — design notes
 
 The current rules are in `RULES.md` (v4). This file explains **why** they are what they are, with the simulation evidence, and keeps the history of earlier versions.
 Tools: `core/engine.ts` (the rules engine, the only implementation of the rules), `sim/sim.ts` (bots and reports that play that engine), `app/scripts/smoke.ts` (the app engine's advisor plays N games), `app/scripts/guide-smoke.ts` (the real-deck guide must equal the engine at every step).

@@ -1,4 +1,4 @@
-// Zoom — the rules engine: the only implementation of the rules (RULES.md). The app (app/) and the simulator (sim/sim.ts) both play it.
+// Fallaway — the rules engine: the only implementation of the rules (RULES.md). The app (app/) and the simulator (sim/sim.ts) both play it.
 // Pure functions: every action returns a NEW state or null if illegal.
 
 export const SUITS = ['♠', '♥', '♦', '♣'] as const

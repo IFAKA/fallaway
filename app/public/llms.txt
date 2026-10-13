@@ -1,0 +1,18 @@
+# Fallaway
+
+> Fallaway is a free solo exploration card game for one standard 52-card deck (1 player, about 15 minutes). Walk a sliding 3x3 map of cards while the land behind you falls away, dig regions for supplies while hostile cards fight back, claim 4 key cards of one suit in a row, then reach the finish card (the Ace of your key suit). Every hand card is food (each step eats one), a weapon (a higher card of a suit beats hostile cards of that suit) and a key (its rank opens a key card).
+
+This site plays the game in the browser, or guides a player step by step through a game with a real deck. There are no difficulty levels: a careful player wins about 54 games in 100, a beginner about 1 in 3.
+
+## Rules
+
+- [Rulebook](https://github.com/IFAKA/fallaway/blob/main/RULES.md): the complete rules, for playing with a real deck
+- [Example game](https://github.com/IFAKA/fallaway/blob/main/RUN_EXAMPLE.md): a full narrated game, move by move
+
+## Design
+
+- [Design notes](https://github.com/IFAKA/fallaway/blob/main/DESIGN_NOTES.md): why the rules are what they are, with simulation numbers and the history of earlier versions
+
+## Source
+
+- [Repository](https://github.com/IFAKA/fallaway): rules engine (core/engine.ts), web app (app/), bot simulator (sim/sim.ts)

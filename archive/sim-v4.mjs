@@ -1,4 +1,4 @@
-// Zoom — ARCHIVED v4 simulator with every rule variant tested while designing v4 (see DESIGN_NOTES.md). It reimplements the rules
+// Fallaway — ARCHIVED v4 simulator with every rule variant tested while designing v4 (see DESIGN_NOTES.md). It reimplements the rules
 // on its own; the live simulator is sim/sim.ts, which plays the app's engine (core/engine.ts). Run this one as `node archive/sim-v4.mjs ...`.
 // Known bug, kept so old results reproduce: with SIMPLE=pay, `mix` pays a card for every dig (digging is free), so `swap pay` reads ~10%; the true value is ~24%.
 // Usage: node sim.mjs [careful|beginner|random|mix|mc] [games=2000] [seed0=1]   -> win rate + game stats

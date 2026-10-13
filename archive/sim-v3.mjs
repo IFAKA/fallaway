@@ -1,4 +1,4 @@
-// Zoom — solo 52-card exploration game, v0 simulator.
+// Fallaway — solo 52-card exploration game, v0 simulator.
 // (archived: the rules before v4; see DESIGN_NOTES.md.) Usage: node archive/sim-v3.mjs [policy=random|heur|heur05..heur50|mc|abl|ablN] [games=300] [seed0=1]
 //        node sim.mjs luck [deals] [replays] [policy]   -> how much the deal decides
 //        ABL=zoom-n,nav-n,pay-n,site-n,zoom,nav,pay node sim.mjs abl ...   -> skill per decision

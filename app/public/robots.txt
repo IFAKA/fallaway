@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ifaka.github.io/fallaway/sitemap.xml

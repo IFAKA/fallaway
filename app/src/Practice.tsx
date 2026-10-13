@@ -195,7 +195,7 @@ function Intro({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal">
       <div className="card-modal">
-        <h2>How to play Zoom</h2>
+        <h2>How to play Fallaway</h2>
         <Rules />
         <p className="muted">The strip “Your {'♣'}” shows where each card of your suit is. The box beside the table always says what to do next; <B>Hint</B> suggests a move and shows the odds while you dig.</p>
         <p className="muted">Keyboard: <B>arrows</B> move, <B>1–9, 0</B> pick a hand card (left to right), <B>Space</B> dig or flip, <B>S</B> stop, <B>F</B> flee, <B>L</B> leave a key card, <B>Z</B> zoom out, <B>U</B> undo, <B>N</B> new game, <B>Esc</B> cancel.</p>
@@ -252,7 +252,7 @@ export default function Practice() {
   const playDaily = () => reset(dailySeed(day), !stats.daily[day], day)
   const undo = () => { if (history.length > 1) { setDir(null); setHistory(h => h.slice(0, -1)); setPending(null); setMeta(m => ({ ...m, ranked: false })) } }
   const share = () => {
-    const txt = `Zoom daily ${meta.daily}: ${s.over === 'win' ? 'WON' : `lost with ${keyCount(s)}/${RUN} of my key`} in ${s.steps} actions. ${location.origin}${location.pathname}`
+    const txt = `Fallaway daily ${meta.daily}: ${s.over === 'win' ? 'WON' : `lost with ${keyCount(s)}/${RUN} of my key`} in ${s.steps} actions. ${location.origin}${location.pathname}`
     navigator.clipboard?.writeText(txt).then(() => setCopied(true), () => setCopied(false))
   }
 

@@ -1,7 +1,7 @@
 {
-  "name": "Zoom — a solo card game",
-  "short_name": "Zoom",
-  "description": "A solo exploration card game for one standard deck. Play on screen, or with your real cards.",
+  "name": "Fallaway — a solo card game",
+  "short_name": "Fallaway",
+  "description": "Fallaway: a free solo exploration card game for one standard 52-card deck. Play on screen, or with your real cards.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

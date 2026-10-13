@@ -1,4 +1,4 @@
-// Zoom — guide engine for playing with a REAL deck. The app never deals: the player flips physical cards and ENTERS what they see.
+// Fallaway — guide engine for playing with a REAL deck. The app never deals: the player flips physical cards and ENTERS what they see.
 // Face-down cards are unknown to the app (cell.c === null). Every action returns a new state with `todo`: the physical steps to perform.
 // The rules are the same as ../../core/engine.ts (scripts/guide-smoke.ts checks that both stay identical).
 import {

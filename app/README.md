@@ -1,4 +1,4 @@
-# Zoom — solo card game (web app)
+# Fallaway — solo card game (web app)
 
 Rules: `../RULES.md`. Design notes and simulation results: `../DESIGN_NOTES.md`. Vite + React 19 + TypeScript + framer-motion.
 
@@ -32,6 +32,7 @@ Browser checks (headless Chrome via puppeteer-core; start the dev server first; 
 - `node scripts/keys.mjs`: keyboard play (arrows, digits, Space, S); a focused button never doubles a key press.
 - `node scripts/shot-ui.mjs`: screenshots the danger tags and the end screen.
 - `node scripts/icons.mjs`: renders `public/favicon.svg` into the PNG icons (192, 512, apple-touch).
+- `node scripts/og.mjs`: renders `public/og.png`, the 1200×630 link preview `index.html` points to.
 
 Screenshots go to `/tmp/shots`. Saved games live in `localStorage` (`zoom-v4`, `zoom-guide-v4`, `zoom-mode`, the record in `zoom-stats-v1`). If a saved game ever fails to load, the page offers "Start fresh" (the record is kept).
 

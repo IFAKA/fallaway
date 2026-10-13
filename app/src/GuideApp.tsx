@@ -125,7 +125,7 @@ export default function GuideApp() {
   if (g.over === 'win') { title = 'You won!'; body = <>You reached the finish card holding your key. Press <B>New game</B> to play another deal.</> }
   else if (g.over) { title = 'You lost'; body = <>{WHY[g.why!]} You had {keyCount(g)}/{RUN} of your key. Tip: <B>eat the cards you need least</B> — keep the ranks that open key cards, and high cards of each suit for fights. Press <B>New game</B> to play again.</> }
   else if (g.step === 'intro') {
-    title = 'Welcome — Zoom, a solo game for one standard deck'
+    title = 'Welcome — Fallaway, a solo game for one standard deck'
     body = <>
       <div>You explore a map of cards, digging regions for supplies while hostile cards fight back. Build a run of {RUN} of your suit, then reach its Ace. About 15 minutes.</div>
       <Rules />

@@ -1,4 +1,4 @@
-// Zoom — simulator. It plays the app's rules engine (core/engine.ts), so the simulator and the app cannot disagree.
+// Fallaway — simulator. It plays the app's rules engine (core/engine.ts), so the simulator and the app cannot disagree.
 // Usage: node sim/sim.ts [careful|beginner|random|mix] [games=2000] [seed0=1]   -> win rate + game stats
 //        node sim/sim.ts report [games]      -> skill ladder (careful / beginner / random) + what each decision is worth
 //        node sim/sim.ts bylock [games]      -> win rate by lock rank and key suit (fairness)

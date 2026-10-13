@@ -1,4 +1,4 @@
-# Zoom
+# Fallaway
 
 *A solo exploration game for one standard deck of 52 cards.*
 1 player · about 15 minutes · rules version 4.1 (2026-10-13)

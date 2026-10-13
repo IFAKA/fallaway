@@ -3,23 +3,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Zoom — a solo card game</title>
-    <meta name="description" content="Zoom is a solo exploration card game for one standard deck: walk a map of cards, dig for supplies, fight hostile cards and build your key. Play on screen, or with your real deck." />
+    <title>Fallaway — a free solo card game for one standard deck</title>
+    <meta name="description" content="Fallaway is a free solo exploration card game for one standard 52-card deck, about 15 minutes. Walk a sliding map of cards, dig for supplies, beat hostile cards and build your key. Play online, or play your real deck with step-by-step guidance." />
+    <link rel="canonical" href="https://ifaka.github.io/fallaway/" />
     <meta name="theme-color" content="#14442f" />
-    <meta property="og:title" content="Zoom — a solo card game" />
-    <meta property="og:description" content="Walk a map of cards, dig for supplies, fight hostile cards, build your key. Skill wins more often, the deck decides each game." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="icon-512.png" />
+    <meta property="og:site_name" content="Fallaway" />
+    <meta property="og:url" content="https://ifaka.github.io/fallaway/" />
+    <meta property="og:title" content="Fallaway — a solo card game for one standard deck" />
+    <meta property="og:description" content="Walk a map of cards while the land behind you falls away. Dig for supplies, beat hostile cards, build your key. Skill wins more often; the deck decides each game." />
+    <meta property="og:image" content="https://ifaka.github.io/fallaway/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Fallaway: a 3 by 3 map of playing cards on a green table" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Fallaway — a solo card game for one standard deck" />
+    <meta name="twitter:description" content="Walk a map of cards while the land behind you falls away. Free, about 15 minutes, play online or with your real deck." />
+    <meta name="twitter:image" content="https://ifaka.github.io/fallaway/og.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Zoom" />
+    <meta name="apple-mobile-web-app-title" content="Fallaway" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": ["VideoGame", "WebApplication"],
+        "name": "Fallaway",
+        "url": "https://ifaka.github.io/fallaway/",
+        "description": "A solo exploration card game for one standard 52-card deck. Walk a sliding 3x3 map of cards, dig regions for supplies while hostile cards fight back, claim 4 key cards in a row and reach the finish card. Play in the browser, or play a real deck with step-by-step guidance.",
+        "genre": ["Card game", "Solitaire", "Solo game", "Patience"],
+        "numberOfPlayers": { "@type": "QuantitativeValue", "value": 1 },
+        "timeRequired": "PT15M",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Any (web browser)",
+        "gamePlatform": "Web browser",
+        "playMode": "SinglePlayer",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "image": "https://ifaka.github.io/fallaway/og.png",
+        "author": { "@type": "Person", "name": "Facundo Arenas" },
+        "codeRepository": "https://github.com/IFAKA/fallaway"
+      }
+    </script>
   </head>
-  <body>
-    <div id="root"></div>
-    <noscript>Zoom needs JavaScript to run.</noscript>
+  <body style="margin: 0; background: #0d3b2a">
+    <!-- Static summary for search engines and slow connections; the app replaces it as soon as it starts. -->
+    <div id="root">
+      <main style="max-width: 640px; margin: 0 auto; padding: 24px; color: #f4efe1; font-family: Georgia, serif; line-height: 1.5">
+        <h1>Fallaway — a solo card game for one standard deck</h1>
+        <p>One player, one standard 52-card deck, about 15 minutes. You are an explorer crossing a land bigger than you can see. Walk a sliding 3×3 map of cards while the land behind you falls away, dig regions for supplies while hostile cards fight back, claim 4 key cards of one suit in a row, then reach the finish card.</p>
+        <p>Every card in your hand is food, a weapon and a key: each step eats a card, a high card beats hostile cards of its suit, and its rank opens a key card. Spending a card for one job means giving up the other two.</p>
+        <p>Play on screen (with a win record and a daily deal), or play your real deck with step-by-step guidance. No difficulty levels: skill wins more often, but the deck decides each game. A careful player wins about 54 games in 100.</p>
+        <p><a style="color: #ffd36b" href="https://github.com/IFAKA/fallaway/blob/main/RULES.md">Read the full rules</a> · <a style="color: #ffd36b" href="https://github.com/IFAKA/fallaway">Source code</a></p>
+      </main>
+    </div>
+    <noscript>Fallaway needs JavaScript to run in the browser. You can still play with a real deck: the full rules are at https://github.com/IFAKA/fallaway/blob/main/RULES.md</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
