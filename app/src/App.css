@@ -63,6 +63,7 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .advice { background: #3a3414; border: 1px solid #c8a21b; border-radius: 6px; padding: 8px 12px; }
 .endbox { background: #14442f; border: 2px solid #ffd36b; border-radius: 10px; padding: 12px 16px; text-align: center; }
 .result { font-size: 26px; font-weight: 800; color: #ffd36b; }
+.record { margin: 6px 0 8px; }
 
 /* animated cards: one size everywhere so a card never changes shape while it travels */
 .tcard { width: var(--cw); height: var(--ch); position: relative; flex: none; perspective: 700px; user-select: none; }
@@ -87,12 +88,15 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .stage { position: relative; flex: none; }
 .stage .zone { position: absolute; border: 2px dashed #2f7a5c; border-radius: 12px; background: #0a2d2055; box-sizing: border-box; }
 .stage .zone.label span { position: absolute; left: 12px; top: 6px; font-size: 12px; opacity: .8; }
-.stage .cellframe { position: absolute; width: 74px; height: 100px; border: 3px solid #ffd36b; border-radius: 10px; background: #14442f; box-sizing: border-box; }
+.stage .cellframe { position: absolute; width: 74px; height: 100px; border: 3px solid #ffd36b; border-radius: 10px; background: #14442f; box-sizing: border-box; transition: transform .6s ease-in-out; }
+/* follows an explored (sideways) center card: same turn and scale as the card, around the same center */
+.stage .cellframe.turned { transform: rotate(90deg) scale(.88); }
 .stage .arrow { position: absolute; padding: 4px 12px; font-size: 16px; z-index: 2; }
 .stage .pilecard.back { position: absolute; margin: 0; width: 62px; height: 88px; border-radius: 7px; }
 .stage .piletxt { position: absolute; font-size: 12px; opacity: .7; width: 62px; text-align: center; }
 .stage .gonebox { position: absolute; display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-start; align-content: flex-start; }
 .stage .gonebox .muted { width: 100%; }
+.gonerow { width: 100%; font-size: 13px; font-weight: 700; line-height: 17px; color: #e8efe9; } .gonerow.red { color: #ff8f8f; }
 .stage .price { position: absolute; width: 130px; text-align: center; font-size: 12px; line-height: 1.35; opacity: .95; }
 .acard { position: absolute; left: 0; top: 0; width: 62px; height: 88px; perspective: 700px; user-select: none; z-index: 3; }
 .acard.clickable { cursor: pointer; }
@@ -159,4 +163,19 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .chip.big { font-size: 15px; padding: 3px 7px; }
 .stage .keyrow { max-width: none; }
 .ctag { white-space: nowrap; }
+.ctag.t-safe { background: #23824f; } .ctag.t-risky { background: #b87a0c; } .ctag.t-deadly { background: #b8322a; }
+.ctag.inl { position: static; transform: none; display: inline-block; font-size: 12px; }
 .stage .keyzone { border: 1px dashed #6fe0a3; border-radius: 8px; }
+
+/* ---- small screens: the table scales to fit (see Fit), the panel goes below ---- */
+.fit { width: 100%; max-width: 720px; overflow: hidden; }
+@media (max-width: 600px) {
+  .play { padding: 6px; gap: 8px; }
+  .modes { flex-wrap: wrap; padding: 6px 6px 0; gap: 6px; }
+  .modes button { padding: 6px 8px; font-size: 13px; }
+  .topbar { gap: 6px; } .topbar button { padding: 6px 9px; font-size: 13px; }
+  .actions { gap: 6px; } button.big { font-size: 14px; padding: 8px 12px; }
+  .pbtn { min-width: 0; flex: 1 0 22px; padding: 8px 0; font-size: 12px; }
+  .klegend { display: none; }
+}
+

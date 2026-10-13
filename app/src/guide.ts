@@ -1,448 +1,376 @@
 // Zoom — guide engine for playing with a REAL deck. The app never deals: the player flips physical cards and ENTERS what they see.
 // Face-down cards are unknown to the app (cell.c === null). Every action returns a new state with `todo`: the physical steps to perform.
-import { LIMIT, START, SUITS, isRed, label, lockLen, power, rank, rankLabel, siteK, strength, suit, zoomCost } from './engine'
-import type { Advice } from './engine'
+// The rules are the same as ../../core/engine.ts (scripts/guide-smoke.ts checks that both stay identical).
+import {
+  DIR_NAME, EDGE, INCOMING, LIMIT, RUN, START, SUITS, adviseView, beats, cardOf, depthOf, hasKey, isKeyCard, keepValsOf, keyCount, keyPlanOf, label, lockWant,
+  rank, rankLabel, suit,
+} from '../../core/engine'
+import type { Dig, KeyPlan, Tip, View, Why } from '../../core/engine'
 
 export interface Cell { id: number; c: number | null; up: boolean; done: 0 | 1 | 2; gap: boolean }
-export type Step = 'intro' | 'lock' | 'vault' | 'pack' | 'grid' | 'hide' | 'play'
+export type Step = 'intro' | 'lock' | 'pack' | 'grid' | 'play'
 export interface G {
   step: Step
-  lock: number | null; S: number; L: number; vault: number
-  pack: number[]; ashes: number[]
+  start: number; limit: number
+  lock: number | null; S: number; vault: number
+  hand: number[]; keys: number[]; gone: number[]; wait: number[]
   grid: Cell[]
-  // k = cards dealt; cards = those entered so far; skips = cards in a row put back under the pile (finish card / key cards)
-  site: { cards: number[]; done: boolean[]; k: number; skips?: number } | null
-  pile: number; behind: number; recycles: number; exhausted: boolean
-  over: null | 'win' | 'lose'
+  dig: (Dig & { asking: boolean }) | null // asking: a flip was requested and the card must be entered
+  wound: boolean // after fleeing: the player must enter the random card they lost
+  pile: number
+  over: null | 'win' | 'lose'; why?: Why
   todo: string[]; log: string[]; steps: number
-  // key cards live only on the map, locked by their rank; claimed ones sit face-up in the KEY ROW
-  keys: number[]
 }
-export type Need =
-  | { kind: 'lock' } | { kind: 'pack'; left: number } | { kind: 'cell'; i: number } | { kind: 'spread'; left: number }
+export type Need = { kind: 'lock' } | { kind: 'pack'; left: number } | { kind: 'cell'; i: number } | { kind: 'flip' } | { kind: 'wound' }
 
 let nextId = 1
 const blank = (): Cell => ({ id: nextId++, c: null, up: false, done: 0, gap: false })
-/** Saved games from before cells had ids: give every cell a unique id (and keep new ids above them). */
+/** Saved games: keep new cell ids above the saved ones. */
 export function fixIds(h: G[]): G[] {
-  h.forEach(g => g.grid.forEach(c => { if (c.id === undefined) c.id = nextId++; else nextId = Math.max(nextId, c.id + 1) }))
+  h.forEach(g => g.grid.forEach(c => { nextId = Math.max(nextId, c.id + 1) }))
   return h
 }
+/** cards in the pile once the map is dealt: 52 - lock - hand - 9 map cards */
+export const pileSize = (start: number) => 52 - 1 - start - 9
 export const newG = (): G => ({
-  step: 'intro', lock: null, S: 0, L: 3, vault: 48,
-  pack: [], ashes: [], grid: Array.from({ length: 9 }, blank), site: null,
-  pile: PILE_SIZE, behind: 0, recycles: 0, exhausted: false, over: null, todo: [], log: [], steps: 0, keys: [],
+  step: 'intro', start: START, limit: LIMIT, lock: null, S: 0, vault: 48,
+  hand: [], keys: [], gone: [], wait: [], grid: Array.from({ length: 9 }, blank), dig: null, wound: false,
+  pile: pileSize(START), over: null, todo: [], log: [], steps: 0,
 })
 const clone = (g: G): G => ({
-  ...g, pack: g.pack.slice(), ashes: g.ashes.slice(), grid: g.grid.map(c => ({ ...c })), keys: g.keys.slice(),
-  site: g.site && { cards: g.site.cards.slice(), done: g.site.done.slice(), k: g.site.k, skips: g.site.skips },
+  ...g, hand: g.hand.slice(), keys: g.keys.slice(), gone: g.gone.slice(), wait: g.wait.slice(), grid: g.grid.map(c => ({ ...c })),
+  dig: g.dig && { ...g.dig, loot: g.dig.loot.slice() },
   todo: [], log: g.log.slice(),
 })
-/** cards in the pile once the map is dealt: 52 - lock - hand - 9 map cards (the finish card is shuffled in) */
-export const PILE_SIZE = 52 - 1 - START - 9
-/** a card of the key suit other than the finish card */
-export const isKeyCard = (g: G, c: number | null) => c !== null && suit(c) === g.S && c !== g.vault
+const lk = (g: G) => ({ S: g.S, lock: g.lock, vault: g.vault })
 
 // ---------- derived ----------
-export const overflow = (g: G) => Math.max(0, g.pack.length - LIMIT)
+export const overflow = (g: G) => Math.max(0, g.hand.length - g.limit)
 export function knownCards(g: G): number[] {
-  return [...(g.lock !== null ? [g.lock] : []), ...g.pack, ...g.ashes, ...g.keys, ...g.grid.flatMap(c => (c.c !== null ? [c.c] : [])), ...(g.site?.cards ?? [])]
+  return [...(g.lock !== null ? [g.lock] : []), ...g.hand, ...g.gone, ...g.keys, ...g.wait, ...g.grid.flatMap(c => (c.c !== null ? [c.c] : [])),
+    ...(g.dig ? [...g.dig.loot, ...(g.dig.hostile >= 0 ? [g.dig.hostile] : []), ...(g.dig.found >= 0 ? [g.dig.found] : [])] : [])]
 }
 export function needOf(g: G): Need | null {
   if (g.over) return null
   if (g.step === 'lock') return { kind: 'lock' }
-  if (g.step === 'pack') return { kind: 'pack', left: START - g.pack.length }
+  if (g.step === 'pack') return { kind: 'pack', left: g.start - g.hand.length }
   if (g.step === 'grid') return { kind: 'cell', i: 4 }
-  if (g.site && g.site.cards.length < g.site.k) return { kind: 'spread', left: g.site.k - g.site.cards.length }
+  if (g.wound) return { kind: 'wound' }
+  if (g.dig?.asking) return { kind: 'flip' }
   const i = g.grid.findIndex(c => c.up && c.c === null && !c.gap)
   return i >= 0 ? { kind: 'cell', i } : null
 }
 export const pendingCells = (g: G) => g.grid.flatMap((c, i) => (c.up && c.c === null && !c.gap ? [i] : []))
-const busy = (g: G) => g.step !== 'play' || !!g.over || overflow(g) > 0 || !!needOf(g)
-export const centerCard = (g: G) => g.grid[4].c
-export function keyHeld(g: G, pack = g.keys): number {
-  let best = 0
-  for (let a = 2; a + g.L - 1 <= 13; a++) {
-    let h = 0
-    for (let r = a; r < a + g.L; r++) if (pack.some(c => suit(c) === g.S && rank(c) === r)) h++
-    best = Math.max(best, h)
-  }
-  return best / g.L
-}
-export const hasKey = (g: G) => keyHeld(g) >= 1
-export const canZoom = (g: G) => {
-  const c = g.grid[4]
-  return !busy(g) && !g.site && !c.gap && c.up && c.c !== null && c.done === 0 && c.c !== g.vault && !isKeyCard(g, c.c) && g.pack.length >= zoomCost(g)
-}
-/** once your key row holds the run, zooming out is free */
-export const scoutCost = (g: G) => (hasKey(g) ? 0 : zoomCost(g))
-export const canScout = (g: G) => !busy(g) && !g.site && g.pack.length >= scoutCost(g) && g.grid.some(c => !c.up && !c.gap)
-export const canMove = (g: G) => !busy(g) && !g.site
-export const canOpen = (g: G) => !busy(g) && !g.site && g.grid[4].c === g.vault && hasKey(g)
-/** the hand cards that open the key card you stand on (same rank) */
-export const claimers = (g: G) => { const c = g.grid[4].c; return isKeyCard(g, c) ? g.pack.flatMap((x, i) => (rank(x) === rank(c!) ? [i] : [])) : [] }
-export const canClaim = (g: G) => !busy(g) && !g.site && claimers(g).length > 0
-/** key ranks worth chasing (missing from the best runs; runs through the lock card are dead) + key ranks visible on the map */
-export function lockWant(g: G): { want: Set<number>; vis: Set<number> } {
-  const vis = new Set<number>()
-  g.grid.forEach(x => { if (x.up && isKeyCard(g, x.c)) vis.add(rank(x.c!)) })
-  const held = new Set(g.keys.map(rank))
-  const lr = g.lock !== null ? rank(g.lock) : -1
-  let best = -1
-  let want = new Set<number>()
-  for (let a = 2; a + g.L - 1 <= 13; a++) {
-    if (lr >= a && lr < a + g.L) continue
-    let sc = 0
-    for (let r = a; r < a + g.L; r++) sc += held.has(r) ? 1 : vis.has(r) ? 0.4 : 0
-    if (sc > best + 1e-9) { best = sc; want = new Set() }
-    if (Math.abs(sc - best) < 1e-9) for (let r = a; r < a + g.L; r++) if (!held.has(r)) want.add(r)
-  }
-  return { want, vis }
-}
-/** keep-value of each hand card (a card whose rank opens a wanted key card is precious) — same numbers as engine.packVals */
-export function packVals(g: G): number[] {
-  const { want, vis } = lockWant(g)
-  return g.pack.map(c => 1 + ((rank(c) - 2) / 12) * 0.4 + (want.has(rank(c)) ? (vis.has(rank(c)) ? 3.5 : 1.2) : 0))
-}
+const busy = (g: G) => g.step !== 'play' || !!g.over || !!needOf(g)
+const idle = (g: G) => !busy(g) && !g.dig && !overflow(g)
+export const visibleOf = (g: G) => [...g.grid.flatMap(c => (c.up && c.c !== null ? [c.c] : [])), ...g.wait]
+export const keyPlan = (g: G): KeyPlan => keyPlanOf(g, visibleOf(g))
+export const scoutCost = (g: G) => (hasKey(g) ? 0 : 1)
+export const canMove = (g: G) => idle(g) && g.hand.length >= 1
+export const canDig = (g: G) => { const x = g.grid[4]; return idle(g) && !x.gap && x.up && x.c !== null && !x.done && suit(x.c) !== g.S && x.c !== g.vault && g.pile > 0 }
+export const canScout = (g: G) => idle(g) && g.hand.length >= scoutCost(g) && g.grid.some(c => !c.up && !c.gap)
+export const claimers = (g: G) => { const c = g.grid[4].c; return isKeyCard(lk(g), c) ? g.hand.flatMap((x, i) => (rank(x) === rank(c!) ? [i] : [])) : [] }
+export const canClaim = (g: G) => idle(g) && claimers(g).length > 0
+export const canFinish = (g: G) => idle(g) && g.grid[4].c === g.vault && hasKey(g)
+const calm = (g: G) => !busy(g) && !!g.dig && g.dig.hostile < 0 && g.dig.found < 0
+export const canFlip = (g: G) => calm(g) && g.dig!.flips < g.dig!.depth && g.pile > 0
+export const canStop = (g: G) => calm(g) && g.dig!.flips > 0
+export const canFight = (g: G, i: number) => !busy(g) && !!g.dig && g.dig.hostile >= 0 && i >= 0 && i < g.hand.length && beats(g.hand[i], g.dig.hostile)
+export const canFlee = (g: G) => !busy(g) && !!g.dig && g.dig.hostile >= 0
+export const canTake = (g: G, i: number) => !busy(g) && !!g.dig && g.dig.found >= 0 && i >= 0 && i < g.hand.length && rank(g.hand[i]) === rank(g.dig.found)
+export const canLeave = (g: G) => !busy(g) && !!g.dig && g.dig.found >= 0
+export const fighters = (g: G) => (g.dig && g.dig.hostile >= 0 ? g.hand.flatMap((c, i) => (beats(c, g.dig!.hostile) ? [i] : [])) : [])
+/** hand cards that can pay for the key card met while digging (same rank) */
+export const takers = (g: G) => (g.dig && g.dig.found >= 0 ? g.hand.flatMap((c, i) => (rank(c) === rank(g.dig!.found) ? [i] : [])) : [])
+/** keep-value of each hand card (same numbers as the advisor) */
+export function handVals(g: G): number[] { const { want, vis } = lockWant(g, visibleOf(g)); return keepValsOf(want, vis, g.hand) }
 
 export type Where = 'pack' | 'gone' | 'table' | 'vault' | 'unknown'
 export function whereIs(g: G, c: number): Where {
-  if (g.step !== 'play' && g.step !== 'hide' && g.step !== 'grid') return 'unknown'
-  if (c === g.vault) return g.pack.includes(c) ? 'pack' : g.grid.some(x => x.c === c) ? 'table' : 'vault'
-  if (g.pack.includes(c) || g.keys.includes(c)) return 'pack' // 'pack' means the key row
-  if (g.ashes.includes(c) || c === g.lock) return 'gone'
-  if (g.grid.some(x => x.c === c) || g.site?.cards.includes(c)) return 'table'
-  return 'unknown'
-}
-export interface KeyPlan { ranks: number[]; have: number[]; missing: number[]; dead: boolean }
-export function keyPlan(g: G): KeyPlan {
-  let best: KeyPlan | null = null
-  let bs = -1
-  const of = (r: number) => (r - 2) * 4 + g.S
-  for (let a = 2; a + g.L - 1 <= 13; a++) {
-    const ranks = Array.from({ length: g.L }, (_, k) => a + k)
-    const have = ranks.filter(r => g.keys.includes(of(r)))
-    const missing = ranks.filter(r => !have.includes(r))
-    if (missing.some(r => g.ashes.includes(of(r)) || of(r) === g.lock)) continue
-    const score = have.length * 10 + missing.filter(r => whereIs(g, of(r)) === 'table').length
-    if (score > bs) { bs = score; best = { ranks, have, missing, dead: false } }
-  }
-  return best ?? { ranks: [], have: [], missing: [], dead: true }
+  if (g.step !== 'play' && g.step !== 'grid') return 'unknown'
+  if (g.keys.includes(c)) return 'pack'
+  if (g.gone.includes(c)) return 'gone'
+  if (g.grid.some(x => x.c === c && x.up) || g.wait.includes(c)) return 'table'
+  return c === g.vault ? 'vault' : 'unknown'
 }
 
-// ---------- physical piles ----------
-/** Deal k cards from the pile (reshuffling BEHIND when it runs out). Mutates t; returns how many could be dealt + the steps to do. */
-function drawPlan(t: G, k: number, what: string): { n: number; steps: string[] } {
-  let need = k
-  let n = 0
-  const steps: string[] = []
-  while (need > 0) {
-    if (t.pile === 0) {
-      if (t.behind === 0) { t.exhausted = true; steps.push('The world has no cards left to deal.'); break }
-      t.recycles++
-      steps.push(`The pile is empty: take the BEHIND pile (${t.behind} card${t.behind === 1 ? '' : 's'}), shuffle it, and put it face-down where the pile was. That is your new pile. Lap ${t.recycles + 1} starts: from now on zooming costs ${zoomCost(t)} cards.`)
-      t.pile = t.behind
-      t.behind = 0
-    }
-    const take = Math.min(need, t.pile)
-    t.pile -= take; need -= take; n += take
-    steps.push(`Deal ${take} card${take > 1 ? 's' : ''} from the top of the pile ${what}.`)
-  }
-  return { n, steps }
-}
+// ---------- end of game (same checks as the engine) ----------
 function settle(t: G): G {
   t.steps++
-  if (!t.over && !t.site && t.exhausted) {
-    t.over = 'lose'
-    t.log.push('The world has no cards left to show you. You lose.')
-  } else if (!t.over && !t.site && t.step === 'play' && !hasKey(t) && t.pack.length < zoomCost(t)) {
-    t.over = 'lose'
-    t.log.push(`You cannot afford to zoom any more (it costs ${zoomCost(t)}) and you do not hold your key. You lose.`)
+  if (t.over || t.dig || t.wound || overflow(t) || needOf(t)) return t
+  if (!canMove(t) && !canDig(t) && !canClaim(t) && !canFinish(t)) {
+    t.over = 'lose'; t.why = 'starved'
+    t.log.push('Your hand is empty: you cannot move, and there is nothing to dig or claim here. You lose.')
   }
   return t
 }
-const spendIdx = (t: G, idx: number[]) => [...idx].sort((a, b) => b - a).map(i => t.pack.splice(i, 1)[0]).reverse().map(c => { t.ashes.push(c); return c })
+const spendIdx = (t: G, idx: number[]) => [...idx].sort((a, b) => b - a).map(i => t.hand.splice(i, 1)[0]).reverse().map(c => { t.gone.push(c); return c })
 const names = (cs: number[]) => cs.map(label).join(' + ')
 
 // ---------- setup ----------
+/** leave the welcome screen */
+export function nextStep(g: G): G | null {
+  if (g.step !== 'intro') return null
+  const t = clone(g)
+  t.step = 'lock'
+  return t
+}
 export function setLock(g: G, c: number): G | null {
   if (g.step !== 'lock' || rank(c) === 14) return null
   const t = clone(g)
-  t.lock = c; t.S = suit(c); t.L = lockLen(rank(c)); t.vault = (12 << 2) | t.S; t.step = 'vault'
-  t.log.push(`Lock card ${label(c)}: you need ${t.L} consecutive ${SUITS[t.S]}; the finish card is A${SUITS[t.S]}.`)
+  t.lock = c; t.S = suit(c); t.vault = cardOf(14, t.S); t.keys = [c]; t.step = 'pack'
+  t.log.push(`Lock card ${label(c)}: it starts your key row. Build ${RUN} in a row of ${SUITS[t.S]}; the finish card is A${SUITS[t.S]}.`)
   return t
-}
-export function nextStep(g: G): G | null {
-  const t = clone(g)
-  if (g.step === 'intro') { t.step = 'lock'; return t }
-  if (g.step === 'vault') { t.step = 'pack'; return t }
-  if (g.step === 'hide') { t.step = 'play'; t.log.push('The game begins.'); return t }
-  return null
 }
 export function enterPack(g: G, c: number): G | null {
-  if (g.step !== 'pack' || g.pack.length >= START) return null
+  if (g.step !== 'pack' || g.hand.length >= g.start) return null
   const t = clone(g)
-  if (isKeyCard(t, c)) { // key cards never start in your hand
-    t.todo = [`${label(c)} is a key card (${SUITS[t.S]}): it cannot start in your hand. Put it FACE-DOWN at the BOTTOM of the deck and deal the next card instead.`]
+  if (suit(c) === t.S) { // cards of the key suit never start in your hand
+    t.todo = [`${label(c)} is a ${SUITS[t.S]} card (your key suit): it cannot start in your hand. Put it with the other ${SUITS[t.S]} cards you set aside, and deal your hand from the rest.`]
     return t
   }
-  t.pack.push(c)
-  if (t.pack.length === START) { t.step = 'grid'; t.grid[4] = { ...blank(), up: true } }
+  t.hand.push(c)
+  if (t.hand.length === t.start) { t.step = 'grid'; t.grid[4] = { ...blank(), up: true } }
   return t
 }
-
-// ---------- entering cards ----------
 export function enterCell(g: G, i: number, c: number): G | null {
   const cell = g.grid[i]
-  if (!cell.up || cell.c !== null || cell.gap) return null
+  if (!cell.up || cell.c !== null || cell.gap || knownCards(g).includes(c)) return null
   const t = clone(g)
   t.grid[i].c = c
-  if (g.step === 'grid') { t.step = 'hide'; t.pile = PILE_SIZE }
+  if (g.step === 'grid') { t.step = 'play'; t.pile = pileSize(t.start); t.log.push('The game begins.') }
   else if (pendingCells(t).length) t.todo = g.todo // still flipping (zoom out): keep the instructions on screen
-  return t
-}
-export function enterSpread(g: G, c: number): G | null {
-  if (!g.site || g.site.cards.length >= g.site.k) return null
-  const t = clone(g)
-  const st = t.site!
-  const dealNext = (): string[] => {
-    if (st.cards.length >= st.k) return ['The spread is complete. Now take the cards (see below).']
-    const d = drawPlan(t, 1, 'FACE-UP next to the others in the spread')
-    if (d.n === 0) st.k = st.cards.length
-    return d.steps
-  }
-  if (c === t.vault || isKeyCard(t, c)) {
-    // the vault and key cards never appear inside a spread: it goes to the bottom of the pile and the next card is dealt instead.
-    // When every card left in the pile has been put back like this, the spread stops.
-    st.skips = (st.skips ?? 0) + 1
-    t.pile += 1
-    const allSkipped = st.skips >= t.pile
-    const what = c === t.vault ? 'the FINISH card' : `a KEY card (${SUITS[t.S]})`
-    const steps = allSkipped ? ((st.k = st.cards.length), [`Every card left in the pile is ${t.pile === 1 ? 'that one' : 'a card that cannot be in a spread'}, so the spread stops here.`]) : dealNext()
-    t.todo = [`That is ${what} (${label(c)}): it cannot be in a spread${c === t.vault ? '' : ', key cards only appear on the map'}. Put it FACE-DOWN at the BOTTOM of the pile.`, ...steps]
-    t.log.push(`  ${label(c)} (${c === t.vault ? 'the finish card' : 'a key card'}) turned up in the spread: back to the bottom of the pile.`)
-  } else {
-    st.skips = 0
-    st.cards.push(c); st.done.push(false)
-    t.log[t.log.length - 1] += ` ${label(c)}`
-    t.todo = dealNext()
-  }
-  return st.k === 0 ? settle(finishSite(t)) : t
+  return settle(t)
 }
 
 // ---------- actions ----------
-const TARGET = [1, 7, 3, 5]
-export function move(g: G, d: number): G | null {
-  if (!canMove(g)) return null
+export function move(g: G, d: number, eat: number): G | null {
+  if (!canMove(g) || d < 0 || d > 3 || eat < 0 || eat >= g.hand.length) return null
   const t = clone(g)
+  const [food] = spendIdx(t, [eat])
   const old = g.grid
   const nu: (Cell | null)[] = Array(9).fill(null)
-  const gone: number[] = []
-  if (d === 0) { for (let i = 0; i < 6; i++) nu[i + 3] = old[i]; gone.push(6, 7, 8) }
-  if (d === 1) { for (let i = 0; i < 6; i++) nu[i] = old[i + 3]; gone.push(0, 1, 2) }
-  if (d === 2) for (let r = 0; r < 3; r++) { for (let c = 0; c < 2; c++) nu[r * 3 + c + 1] = old[r * 3 + c]; gone.push(r * 3 + 2) }
-  if (d === 3) for (let r = 0; r < 3; r++) { for (let c = 0; c < 2; c++) nu[r * 3 + c] = old[r * 3 + c + 1]; gone.push(r * 3) }
-  const goneCards = gone.filter(i => !old[i].gap).length
-  const { n, steps } = drawPlan(t, 3, 'FACE-DOWN into the new row/column')
-  let k = 0
-  t.grid = nu.map(c => (c ? { ...c } : k++ < n ? blank() : { ...blank(), gap: true }))
-  t.grid[4] = { ...t.grid[4], up: !t.grid[4].gap }
-  t.behind += goneCards
+  if (d === 0) for (let i = 0; i < 6; i++) nu[i + 3] = old[i]
+  if (d === 1) for (let i = 0; i < 6; i++) nu[i] = old[i + 3]
+  if (d === 2) for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) nu[r * 3 + c + 1] = old[r * 3 + c]
+  if (d === 3) for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) nu[r * 3 + c] = old[r * 3 + c + 1]
+  const fell = EDGE[d].filter(i => !old[i].gap).length
+  t.pile += fell
   const words = ['UP', 'DOWN', 'LEFT', 'RIGHT'][d]
   const outgoing = ['BOTTOM row', 'TOP row', 'RIGHT column', 'LEFT column'][d]
   const incoming = ['TOP row', 'BOTTOM row', 'LEFT column', 'RIGHT column'][d]
   const slide = ['down', 'up', 'right', 'left'][d]
+  const order = d < 2 ? 'left to right' : 'top to bottom'
+  const deal: string[] = []
+  const waited: number[] = []
+  let world = false
+  for (const i of INCOMING[d]) {
+    if (t.wait.length) { const c = t.wait.shift()!; waited.push(c); nu[i] = { ...blank(), c, up: true } }
+    else if (t.pile > 0) { t.pile--; nu[i] = blank() }
+    else { world = true; nu[i] = { ...blank(), gap: true } }
+  }
+  if (waited.length) deal.push(`Put the waiting card${waited.length > 1 ? 's' : ''} ${names(waited)} FACE-UP into the ${incoming} first (${order}).`)
+  const fromPile = INCOMING[d].length - waited.length - (world ? 1 : 0)
+  if (fromPile > 0) deal.push(`Deal ${fromPile} card${fromPile > 1 ? 's' : ''} FACE-DOWN from the top of the pile into ${waited.length ? 'the rest of ' : ''}the ${incoming} (${order}).`)
+  t.grid = nu.map(c => c ?? { ...blank(), gap: true })
   t.todo = [
-    `Move ${words}: pick up the ${outgoing} (${goneCards} card${goneCards === 1 ? '' : 's'}) and HOLD them for now.`,
+    `Eat ${label(food)}: put it face-up on the GONE pile.`,
+    `Move ${words}: pick up the ${outgoing}${fell ? ` (${fell} card${fell > 1 ? 's' : ''})` : ''} and put ${fell === 1 ? 'it' : 'them'} FACE-DOWN UNDER the pile.`,
     `Slide the other cards one place ${slide}, so the ${incoming} is empty. Keep each card as it is (face-up stays face-up, sideways stays sideways, empty spots move too).`,
-    ...steps.map(s => s.replace('into the new row/column', `into the ${incoming}${n < 3 ? ` (fill it from the ${d < 2 ? 'left' : 'top'}; leave the rest of it empty)` : ''}`)),
-    ...(goneCards ? [`Now put the ${goneCards} cards you were holding FACE-DOWN on the BEHIND pile.`] : []),
-    t.grid[4].gap ? 'The middle spot is empty (nothing to flip). You stand there.' : t.grid[4].c !== null ? 'You now stand on the middle card (it is already face-up).' : 'Turn the MIDDLE card face-up and tap it in the list below.',
+    ...deal,
   ]
-  t.log.push(`Move ${words.toLowerCase()}.`)
+  if (world) {
+    t.over = 'lose'; t.why = 'world'
+    t.log.push('The pile is empty: there is no world left to walk into. You lose.')
+    return settle(t)
+  }
+  if (!t.grid[4].gap && !t.grid[4].up) { t.grid[4].up = true; t.todo.push('Turn the MIDDLE card face-up and tap it in the list below.') }
+  else t.todo.push(t.grid[4].gap ? 'The middle spot is empty. You stand there.' : `You stand on ${label(t.grid[4].c!)} (already face-up).`)
+  t.log.push(`Move ${DIR_NAME[d]} (eat ${label(food)}).`)
   return settle(t)
 }
-const validPay = (g: G, pay: number[], cost: number) => pay.length === cost && new Set(pay).size === pay.length && pay.every(i => i >= 0 && i < g.pack.length)
-const validZoomPay = (g: G, pay: number[]) => validPay(g, pay, zoomCost(g))
 export function scout(g: G, pay: number[]): G | null {
-  if (!canScout(g) || !validPay(g, pay, scoutCost(g))) return null
+  if (!canScout(g) || pay.length !== scoutCost(g) || new Set(pay).size !== pay.length || pay.some(i => i < 0 || i >= g.hand.length)) return null
   const t = clone(g)
-  const c = names(spendIdx(t, pay))
+  const cs = spendIdx(t, pay)
   let flipped = 0
   t.grid.forEach(x => { if (!x.up && !x.gap) { x.up = true; flipped++ } })
-  t.todo = [...(pay.length ? [`Put ${c} from your hand face-up on the GONE pile.`] : []), `Turn all ${flipped} face-down cards on the map face-up (leave them where they are) and tap each one in the list below.`]
-  t.log.push(pay.length ? `Zoom OUT: spend ${c}.` : 'Zoom OUT (free: you hold your key).')
+  t.todo = [...(cs.length ? [`Put ${names(cs)} face-up on the GONE pile.`] : []), `Turn all ${flipped} face-down map cards face-up (leave them where they are) and tap each one in the list below.`]
+  t.log.push(cs.length ? `Zoom OUT (pay ${names(cs)}).` : 'Zoom OUT (free: you hold your key).')
   return settle(t)
 }
-/** show a hand card of the same rank (keep it); the key card moves from the middle of the map to the key row */
+export function dig(g: G): G | null {
+  if (!canDig(g)) return null
+  const t = clone(g)
+  const r = t.grid[4].c!
+  t.dig = { depth: depthOf(r), flips: 0, loot: [], hostile: -1, found: -1, asking: true }
+  t.todo = [`Zoom IN on ${label(r)}: you may flip up to ${t.dig.depth} cards from the pile, one at a time, into a row BELOW the map (the dig row). Every ${SUITS[suit(r)]} card you flip is HOSTILE.`, 'Turn over the TOP card of the pile now and tap it in the list below.']
+  t.log.push(`Zoom IN on ${label(r)}: dig up to ${t.dig.depth}; ${SUITS[suit(r)]} cards are hostile here.`)
+  return settle(t)
+}
+export function flip(g: G): G | null {
+  if (!canFlip(g)) return null
+  const t = clone(g)
+  t.dig!.asking = true
+  t.todo = ['Turn over the TOP card of the pile and tap it in the list below.']
+  return t
+}
+function endDig(t: G, cleared: boolean) {
+  const d = t.dig!
+  t.hand.push(...d.loot)
+  if (cleared) {
+    const r = t.grid[4].c!
+    t.hand.push(r)
+    t.grid[4] = { ...blank(), done: 2, gap: true }
+    t.todo.push(`You dug to the bottom: take ${d.loot.length ? `the dig row (${names(d.loot)}) and ` : ''}the region card ${label(r)} (the middle of the map) into your hand. Leave its spot EMPTY.`)
+  } else {
+    t.grid[4].done = 1
+    t.todo.push(`${d.loot.length ? `Take the dig row (${names(d.loot)}) into your hand. ` : ''}Turn the region card (middle of the map) SIDEWAYS: it is explored.`)
+  }
+  t.dig = null
+}
+/** the card the player turned over while digging */
+export function enterFlip(g: G, c: number): G | null {
+  if (!g.dig?.asking || knownCards(g).includes(c)) return null
+  const t = clone(g)
+  const d = t.dig!
+  t.pile--
+  if (suit(c) === t.S) {
+    if (isKeyCard(lk(t), c) && t.hand.some(x => rank(x) === rank(c))) {
+      d.asking = false; d.found = c
+      t.todo = [`${label(c)} is a KEY card (${SUITS[t.S]}), and you hold a ${rankLabel(rank(c))}. It does not count as a flip. Choose: TAKE it now (pay your ${rankLabel(rank(c))}), or LEAVE it waiting beside the pile.`]
+      t.log.push(`  ${label(c)} turns up: take it or leave it.`)
+      return t
+    }
+    t.wait.push(c)
+    t.todo = [`${label(c)} is ${c === t.vault ? 'the FINISH card' : `a KEY card (${SUITS[t.S]})`}: it does not count. Put it FACE-UP beside the pile (the WAITING spot): it joins the map on your next move.`]
+    t.log.push(`  ${label(c)} turns up: it waits beside the pile.`)
+    return again(t)
+  }
+  d.asking = false
+  d.flips++
+  if (suit(c) === suit(t.grid[4].c!)) {
+    d.hostile = c
+    t.todo = [`Put ${label(c)} in the dig row: it is HOSTILE. Beat it with a higher ${SUITS[suit(c)]} from your hand, or flee.`]
+    t.log.push(`  Flip ${label(c)}: HOSTILE!`)
+    return settle(t)
+  }
+  d.loot.push(c)
+  t.todo = [`Put ${label(c)} in the dig row: it is loot.`]
+  t.log.push(`  Flip ${label(c)}: loot.`)
+  if (d.flips >= d.depth) endDig(t, true)
+  return settle(t)
+}
+/** a key card does not count as a flip: turn over the next card (the dig ends if the pile is empty) */
+function again(t: G): G {
+  const d = t.dig!
+  if (t.pile > 0) { d.asking = true; t.todo.push('Turn over the next card of the pile and tap it in the list below.'); return t }
+  d.asking = false
+  t.todo.push('The pile is empty: the dig ends.')
+  endDig(t, false)
+  return settle(t)
+}
+export function take(g: G, i: number): G | null {
+  if (!canTake(g, i)) return null
+  const t = clone(g)
+  const d = t.dig!, k = d.found
+  const [c] = spendIdx(t, [i])
+  t.keys.push(k); d.found = -1
+  t.todo = [`Put your ${label(c)} face-up on the GONE pile, and ${label(k)} FACE-UP into your KEY ROW.`]
+  t.log.push(`  Take ${label(k)} (pay ${label(c)}). Key row: ${[...t.keys].sort((a, b) => rank(a) - rank(b)).map(label).join(' ')}.`)
+  return again(t)
+}
+export function leave(g: G): G | null {
+  if (!canLeave(g)) return null
+  const t = clone(g)
+  const d = t.dig!, k = d.found
+  t.wait.push(k); d.found = -1
+  t.todo = [`Put ${label(k)} FACE-UP beside the pile (the WAITING spot): it joins the map on your next move.`]
+  t.log.push(`  Leave ${label(k)}: it waits beside the pile.`)
+  return again(t)
+}
+export function fight(g: G, i: number): G | null {
+  if (!canFight(g, i)) return null
+  const t = clone(g)
+  const d = t.dig!, h = d.hostile
+  const [c] = spendIdx(t, [i])
+  d.loot.push(h); d.hostile = -1
+  t.todo = [`Put your ${label(c)} face-up on the GONE pile: it beats ${label(h)}, which stays in the dig row as loot.`]
+  t.log.push(`  Beat ${label(h)} with ${label(c)}.`)
+  if (d.flips >= d.depth) endDig(t, true)
+  return settle(t)
+}
+export function flee(g: G): G | null {
+  if (!canFlee(g)) return null
+  const t = clone(g)
+  const d = t.dig!
+  const lost = [...d.loot, d.hostile]
+  t.gone.push(...lost)
+  t.grid[4].done = 1
+  t.dig = null
+  t.todo = [`Put the whole dig row (${names(lost)}) face-up on the GONE pile.`, 'Turn the region card (middle of the map) SIDEWAYS: it is explored.']
+  if (t.hand.length) {
+    t.wound = true
+    t.todo.push('The hostile card wounds you: shuffle your hand FACE-DOWN, pull out ONE card at random, put it face-up on the GONE pile, and tap it in the list below.')
+  }
+  t.log.push(`  Flee from ${label(d.hostile)}: lose the loot.`)
+  return settle(t)
+}
+/** the random card the player lost to a wound */
+export function enterWound(g: G, c: number): G | null {
+  const i = g.hand.indexOf(c)
+  if (!g.wound || i < 0) return null
+  const t = clone(g)
+  spendIdx(t, [i])
+  t.wound = false
+  t.log[t.log.length - 1] += ` It wounds you: lose ${label(c)}.`
+  return settle(t)
+}
+export function stop(g: G): G | null {
+  if (!canStop(g)) return null
+  const t = clone(g)
+  t.log.push(`  Stop digging: ${t.dig!.loot.length} card${t.dig!.loot.length === 1 ? '' : 's'} to your hand.`)
+  endDig(t, false)
+  return settle(t)
+}
 export function claim(g: G): G | null {
   if (!canClaim(g)) return null
   const t = clone(g)
   const k = t.grid[4].c!
-  const shown = t.pack[claimers(t)[0]]
+  const shown = t.hand[claimers(t)[0]]
   t.keys.push(k)
   t.grid[4] = { ...blank(), done: 2, gap: true }
-  t.todo = [`Show your ${label(shown)} (it stays in your hand).`, `Move ${label(k)} from the middle of the map FACE-UP to your KEY ROW. Leave its spot on the map EMPTY.`]
-  t.log.push(`Claim ${label(k)}: show ${label(shown)}. Key row: ${[...t.keys].sort((a, b) => a - b).map(label).join(' ')}.`)
+  t.todo = [`Show your ${label(shown)} (it stays in your hand).`, `Move ${label(k)} from the middle of the map FACE-UP into your KEY ROW. Leave its spot on the map EMPTY.`]
+  t.log.push(`Claim ${label(k)} (show ${label(shown)}). Key row: ${[...t.keys].sort((a, b) => rank(a) - rank(b)).map(label).join(' ')}.`)
   return settle(t)
 }
-export function zoom(g: G, pay: number[]): G | null {
-  if (!canZoom(g) || !validZoomPay(g, pay)) return null
-  const t = clone(g)
-  const c = names(spendIdx(t, pay))
-  const reg = t.grid[4].c!
-  const { n, steps } = drawPlan(t, 1, 'FACE-UP in a row under the map (the spread)')
-  t.site = { cards: [], done: [], k: n ? siteK(rank(reg)) : 0 }
-  t.todo = [`Put ${c} from your hand face-up on the GONE pile.`, ...steps, ...(n ? [`Tap that card in the list below. This spread gets ${t.site.k} card${t.site.k > 1 ? 's' : ''} (${rankLabel(rank(reg))} is ${rank(reg) <= 5 ? '2-5' : rank(reg) <= 10 ? '6-10' : 'J-A'}), dealt ONE AT A TIME: I tell you when to deal the next.`] : [])]
-  t.log.push(`Zoom IN on ${label(reg)}: spend ${c}; spread:`)
-  if (n === 0) return settle(finishSite(t))
-  return settle(t)
-}
-function finishSite(t: G): G {
-  const st = t.site!
-  const done = st.done.length === st.k && st.done.every(Boolean)
-  if (done) {
-    const r = t.grid[4].c!
-    t.pack.push(r)
-    t.grid[4] = { ...blank(), done: 2, gap: true }
-    t.todo.push(`You took everything, so the region card ${label(r)} (the middle card of the map) joins your hand too: pick it up and leave its spot EMPTY.`)
-    t.log.push(`  Everything taken: region ${label(r)} joins your hand.`)
-  } else t.grid[4].done = 1
-  t.site = null
-  return t
-}
-export function validTake(g: G, j: number, pay: number[]): boolean {
-  if (!g.site || g.site.done[j] === undefined || g.site.done[j] || overflow(g) || g.site.cards.length < g.site.k) return false
-  const m = g.site.cards[j]
-  const cs = pay.map(i => g.pack[i])
-  if (new Set(pay).size !== pay.length || pay.some(i => i < 0 || i >= g.pack.length)) return false
-  if (suit(m) === 1 || suit(m) === 2) return pay.length === 0
-  if (suit(m) === 3) return (cs.length === 1 && isRed(cs[0]) === isRed(m)) || cs.length === 2
-  return cs.length > 0 && cs.reduce((x, c) => x + power(c), 0) >= strength(m)
-}
-export function cheapestPay(g: G, j: number): { pay: number[]; cost: number } | null {
-  if (!g.site) return null
-  const m = g.site.cards[j], k = suit(m)
-  if (k === 1 || k === 2) return { pay: [], cost: 0 }
-  const kv = packVals(g), n = g.pack.length
-  let best: number[] | null = null
-  let bc = Infinity
-  if (k === 3) {
-    for (let i = 0; i < n; i++) if (isRed(g.pack[i]) === isRed(m) && kv[i] < bc) { bc = kv[i]; best = [i] }
-    const idx = [...kv.keys()].sort((a, b) => kv[a] - kv[b])
-    if (n >= 2 && kv[idx[0]] + kv[idx[1]] < bc) { bc = kv[idx[0]] + kv[idx[1]]; best = [idx[0], idx[1]] }
-  } else {
-    for (let mask = 1; mask < 1 << n; mask++) {
-      let pw = 0, cost = 0
-      for (let i = 0; i < n; i++) if (mask >> i & 1) { pw += power(g.pack[i]); cost += kv[i] }
-      if (pw >= strength(m) && cost < bc) { bc = cost; best = [...Array(n).keys()].filter(i => mask >> i & 1) }
-    }
-  }
-  return best ? { pay: best, cost: bc } : null
-}
-export function take(g: G, j: number, pay: number[]): G | null {
-  if (!validTake(g, j, pay)) return null
-  const t = clone(g)
-  const m = t.site!.cards[j], k = suit(m)
-  const spent = spendIdx(t, pay)
-  t.pack.push(m)
-  t.site!.done[j] = true
-  if (k === 1 || k === 2) { t.todo = [`Take ${label(m)} from the spread into your hand.`]; t.log.push(`  Take ${label(m)} (free).`) }
-  else if (k === 3) { t.todo = [`Put ${names(spent)} from your hand face-up on the GONE pile.`, `Take ${label(m)} (obstacle) from the spread into your hand.`]; t.log.push(`  Take ${label(m)}: swap for ${names(spent)}.`) }
-  else { t.todo = [`Put ${names(spent)} from your hand face-up on the GONE pile.`, `Take ${label(m)} (monster) from the spread into your hand.`]; t.log.push(`  Take ${label(m)}: beat it with ${names(spent)}.`) }
-  if (t.site!.done.length === t.site!.k && t.site!.done.every(Boolean)) return settle(finishSite(t))
-  return settle(t)
-}
-/** Rule: you must take every spread card you can pay for. You may leave only when nothing left is affordable. */
-export const canLeave = (g: G) => !!g.site && !g.over && g.site.cards.length >= g.site.k && !overflow(g) && g.site.cards.every((_, j) => g.site!.done[j] || !cheapestPay(g, j))
-export function leave(g: G): G | null {
-  if (!canLeave(g)) return null
-  const t = clone(g)
-  const left = g.site!.done.filter(d => !d).length
-  t.todo = [
-    ...(left ? [`You cannot pay for the ${left} card${left > 1 ? 's' : ''} left in the spread: set ${left > 1 ? 'them' : 'it'} aside, OUT OF PLAY (not on BEHIND).`] : []),
-    'Turn the region card (middle of the map) sideways: it is explored, you cannot zoom into it again.',
-  ]
-  t.log.push('  Finish the site (cannot pay for the rest).')
-  return settle(finishSite(t))
-}
-export function open(g: G): G | null {
-  if (!canOpen(g)) return null
+export function finish(g: G): G | null {
+  if (!canFinish(g)) return null
   const t = clone(g)
   t.over = 'win'
-  t.todo = ['You reached the finish card. You win!']
-  t.log.push('You stand on the finish card holding your run: YOU WIN!')
+  t.todo = ['You stand on the finish card holding your key. You win!']
+  t.log.push('You stand on the finish card holding your key: YOU WIN!')
   return settle(t)
 }
 export function discard(g: G, i: number): G | null {
-  if (!overflow(g) || i < 0 || i >= g.pack.length) return null
+  if (busy(g) || g.dig || !overflow(g) || i < 0 || i >= g.hand.length) return null
   const t = clone(g)
   const [c] = spendIdx(t, [i])
   t.todo = [`Put ${label(c)} from your hand face-up on the GONE pile.`]
-  t.log.push(`Hand over ${LIMIT}: discard ${label(c)}.`)
-  return t
+  t.log.push(`Hand over ${t.limit}: discard ${label(c)}.`)
+  return settle(t)
 }
 
-// ---------- advisor (same greedy heuristic as the simulator) ----------
-export interface Tip { advice: Advice; text: string }
-function cellScore(g: G, i: number): number {
-  const x = g.grid[i]
-  if (x.gap) return 0
-  if (!x.up || x.c === null) return 5.2
-  if (x.c === g.vault) return hasKey(g) ? 900 : keyHeld(g) >= 0.66 ? 8 : 2
-  if (x.done) return 0.5
-  if (isKeyCard(g, x.c)) return !lockWant(g).want.has(rank(x.c)) ? 0.5 : g.pack.some(c => rank(c) === rank(x.c!)) ? 40 : 3
-  return 4 + 1.6 * siteK(rank(x.c))
+// ---------- advisor (the engine's, on what the player can see) ----------
+export function viewOfG(g: G): View {
+  return {
+    S: g.S, lock: g.lock!, vault: g.vault, limit: g.limit, hand: g.hand, keys: g.keys, gone: g.gone, wait: g.wait,
+    gc: g.grid.map(c => (c.gap ? -1 : c.up && c.c !== null ? c.c : -2)), gdone: g.grid.map(c => c.done),
+    dig: g.dig && { depth: g.dig.depth, flips: g.dig.flips, loot: g.dig.loot, hostile: g.dig.hostile, found: g.dig.found }, region: g.grid[4].gap ? -1 : g.grid[4].c ?? -1, pile: g.pile,
+  }
 }
-const DISC = [[6, 7, 8], [0, 1, 2], [2, 5, 8], [0, 3, 6]]
-const DIRS = ['up', 'down', 'left', 'right']
 export function advise(g: G): Tip | null {
   if (g.over || g.step !== 'play' || needOf(g)) return null
-  const lowest = () => { const kv = packVals(g); return [...kv.keys()].sort((a, b) => kv[a] - kv[b]) }
-  if (overflow(g)) {
-    const i = lowest()[0]
-    return { advice: { kind: 'discard', i }, text: `Your hand is over ${LIMIT}: discard ${label(g.pack[i])} (it helps your key the least).` }
-  }
-  if (g.site) {
-    let best = null as Tip | null
-    let bc = Infinity
-    g.site.cards.forEach((m, j) => {
-      if (g.site!.done[j]) return
-      const cp = cheapestPay(g, j)
-      if (!cp || cp.cost >= bc) return
-      bc = cp.cost
-      const how = cp.pay.length ? ` (pay ${names(cp.pay.map(i => g.pack[i]))}: the cards you need least)` : ' (free)'
-      best = { advice: { kind: 'take', j, pay: cp.pay }, text: `Take ${label(m)}${how}. You must take everything you can pay for; free cards first, then the cheapest.` }
-    })
-    return best ?? { advice: { kind: 'leave' }, text: 'You cannot pay for anything left here. Finish the site.' }
-  }
-  if (canOpen(g)) return { advice: { kind: 'open' }, text: 'You are on the finish card and hold your run. Finish the game!' }
-  const keyed = hasKey(g)
-  const down = g.grid.filter(c => !c.up && !c.gap).length
-  const vi = g.grid.findIndex(c => c.c === g.vault && c.up)
-  const payZ = lowest().slice(0, zoomCost(g))
-  const payNames = names(payZ.map(i => g.pack[i]))
-  let bs = -Infinity
-  let best = null as Tip | null
-  const consider = (sc: number, tip: Tip) => { if (sc > bs) { bs = sc; best = tip } }
-  const here = g.grid[4].c
-  if (canClaim(g) && lockWant(g).want.has(rank(here!))) consider(100, { advice: { kind: 'claim' }, text: `Claim ${label(here!)}: show your ${label(g.pack[claimers(g)[0]])} (you keep it) and move ${label(here!)} to your key row.` })
-  if (canZoom(g)) consider(g.pack.length >= zoomCost(g) + 1 ? 5 + 1.6 * siteK(rank(here!)) : 1, { advice: { kind: 'zoom', pay: payZ }, text: `Zoom in on ${label(here!)} (pay ${payNames}): unexplored regions are where the loot is.` })
-  if (canScout(g)) {
-    if (!scoutCost(g)) consider(vi < 0 ? 50 : -1, { advice: { kind: 'scout', pay: [] }, text: 'Zoom out (free now that you hold your key) to look for the finish card.' })
-    else consider(g.pack.length >= zoomCost(g) + 2 ? 0.55 * down : 0, { advice: { kind: 'scout', pay: payZ }, text: `Zoom out (pay ${payNames}) to see the whole map, spot key cards and find the finish card.` })
-  }
-  if (canMove(g)) {
-    for (let d = 0; d < 4; d++) {
-      let sc = cellScore(g, TARGET[d]) - 0.25 * DISC[d].reduce((x, i) => x + cellScore(g, i), 0)
-      if (keyed && vi >= 0) {
-        const r = Math.floor(vi / 3), c = vi % 3
-        if ((d === 0 && r < 1) || (d === 1 && r > 1) || (d === 2 && c < 1) || (d === 3 && c > 1)) sc += 30
-      }
-      const tc = g.grid[TARGET[d]]
-      consider(sc, { advice: { kind: 'move', d }, text: `Move ${DIRS[d]}${tc.up && tc.c !== null ? ` to ${label(tc.c)}` : ' into the unknown'}${keyed && vi >= 0 ? ' (toward the finish card)' : ''}.` })
-    }
-  }
-  return best
+  return adviseView(viewOfG(g))
 }
-export { rankLabel }
+export { keyCount, rankLabel }

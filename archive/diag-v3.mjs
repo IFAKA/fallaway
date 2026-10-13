@@ -1,4 +1,4 @@
-import { play } from './sim.mjs';
+import { play } from './sim-v3.mjs';
 const pol = process.argv[2] ?? 'heur', N = +(process.argv[3] ?? 2000);
 let vSeen = 0, win = 0, prog = [0,0,0,0,0,0], sSeen = 0, sites = 0, zooms = 0;
 for (let g = 1; g <= N; g++) {

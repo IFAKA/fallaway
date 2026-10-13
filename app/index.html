@@ -2,12 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Zoom — a solo card game</title>
+    <meta name="description" content="Zoom is a solo exploration card game for one standard deck: walk a map of cards, dig for supplies, fight hostile cards and build your key. Play on screen, or with your real deck." />
+    <meta name="theme-color" content="#14442f" />
+    <meta property="og:title" content="Zoom — a solo card game" />
+    <meta property="og:description" content="Walk a map of cards, dig for supplies, fight hostile cards, build your key. Skill wins more often, the deck decides each game." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="icon-512.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Zoom" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Zoom needs JavaScript to run.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

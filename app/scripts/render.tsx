@@ -2,4 +2,4 @@
 import { renderToString } from 'react-dom/server'
 import App from '../src/App'
 const html = renderToString(<App />)
-console.log('rendered', html.length, 'chars; cards:', (html.match(/class="tcard/g) ?? []).length, 'buttons:', (html.match(/<button/g) ?? []).length)
+console.log('rendered', html.length, 'chars; cards:', (html.match(/class="acard/g) ?? []).length, 'buttons:', (html.match(/<button/g) ?? []).length)

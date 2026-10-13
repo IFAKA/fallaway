@@ -8,7 +8,8 @@
     "play": "vite --host",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "bun scripts/smoke.ts 500 && bun scripts/guide-smoke.ts 500"
   },
   "dependencies": {
     "framer-motion": "^14.1.0",

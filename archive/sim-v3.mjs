@@ -1,5 +1,5 @@
 // Zoom — solo 52-card exploration game, v0 simulator.
-// Usage: node sim.mjs [policy=random|heur|heur05..heur50|mc|abl|ablN] [games=300] [seed0=1]
+// (archived: the rules before v4; see DESIGN_NOTES.md.) Usage: node archive/sim-v3.mjs [policy=random|heur|heur05..heur50|mc|abl|ablN] [games=300] [seed0=1]
 //        node sim.mjs luck [deals] [replays] [policy]   -> how much the deal decides
 //        ABL=zoom-n,nav-n,pay-n,site-n,zoom,nav,pay node sim.mjs abl ...   -> skill per decision
 //        node sim.mjs run [policy] [seed]      -> narrated run with ASCII maps
@@ -27,6 +27,12 @@ export const P = {
   // Claimed key cards go to a separate KEY ROW (never spent, not counted in the hand limit).
   LOCKS: +(process.env.LOCKS ?? 0),
   lockLen: () => +(process.env.LOCK_LEN ?? 4),
+  // HURT=n: every monster you leave unbeaten takes n random cards from your hand (shuffle the hand face-down, discard from the top)
+  HURT: +(process.env.HURT ?? 0),
+  // TURF=1: the region's colour matters. Black (♠♣) = wild: one extra spread card, monsters bite. Red (♥♦) = settled: monsters there never bite.
+  TURF: +(process.env.TURF ?? 0),
+  // DUEL=1: beat a monster with exactly ONE hand card whose value (♠ double) is at least the monster's full rank
+  DUEL: +(process.env.DUEL ?? 0),
   siteK: (r) => (r <= 5 ? 1 : r <= 10 ? 2 : 3) + +(process.env.SITE_BONUS ?? 0),
 };
 let HOME = +(process.env.HOME_TURF ?? 0);
@@ -165,16 +171,30 @@ function keyProgress(s) {
 }
 const hasKey = (s) => keyProgress(s) >= 1;
 const power = (c) => rank(c) * (suit(c) === 0 ? 2 : 1);
-const strength = (m, s) => Math.ceil(rank(m) / P.MON_DIV) + P.ESC_MON * s.recycles;
+const strength = (m, s) => Math.ceil(rank(m) / (P.DUEL ? 1 : P.MON_DIV)) + P.ESC_MON * s.recycles;
 const zoomCost = (s) => 1 + P.ESC_ZOOM * s.recycles + (s.tax ?? 0);
 const scoutCost = (s) => (process.env.FREE_SCOUT_KEYED && hasKey(s) ? 0 : zoomCost(s)); // FREE_SCOUT_KEYED=1: once you hold the key, zooming out is free
-const spreadK = (c, s) => Math.max(1, K(c, s.S) - P.ESC_K * s.recycles);
+const spreadK = (c, s) => Math.max(1, K(c, s.S) - P.ESC_K * s.recycles) + (P.TURF && !red(c) ? 1 : 0);
+const bites = (region) => P.HURT > 0 && !(P.TURF && red(region)); // do unbeaten monsters in this region hurt you?
+const woundCost = (s) => { const kv = keepVals(s); return kv.length ? (P.HURT * kv.reduce((a, x) => a + x, 0)) / kv.length : 0; }; // expected keep-value lost to one bite
+function wound(s) { // leaving a site: each unbeaten monster takes P.HURT random hand cards
+  if (!bites(s.gc[4])) return [];
+  const lost = [];
+  for (const [j, m] of s.site.cards.entries()) {
+    if (s.site.done[j] || suit(m) !== 0) continue;
+    for (let k = 0; k < P.HURT && s.pack.length; k++) lost.push(s.pack.splice(Math.floor(s.R() * s.pack.length), 1)[0]);
+  }
+  s.ashes.push(...lost);
+  s.stats.wounds = (s.stats.wounds ?? 0) + lost.length;
+  return lost;
+}
 function payN(s, n) { const out = []; for (let i = 0; i < n; i++) out.push(payOne(s)); return out; }
 
 function cheapestFight(s, need) {
   const kv = payVals(s), n = s.pack.length;
   let best = null, bc = Infinity;
   for (let m = 1; m < 1 << n; m++) {
+    if (P.DUEL && m & (m - 1)) continue; // one card only
     let pw = 0, cost = 0;
     for (let i = 0; i < n; i++) if (m >> i & 1) { pw += power(s.pack[i]); cost += kv[i]; }
     if (pw >= need && cost < bc) { bc = cost; best = m; }
@@ -376,9 +396,11 @@ function apply(s, a, log) {
       break;
     }
     case 'stop': bank(s, false); say('  Stop and keep the loot.'); break;
-    case 'leave':
-      say('  Cannot pay for the rest: those cards are forgotten.');
+    case 'leave': {
+      const lost = wound(s);
+      say(`  Leave the rest: those cards are forgotten.${lost.length ? ` The monsters you left bite: lose ${lost.map(nm).join('+')}.` : ''}`);
       finishSite(s);
+    }
       break;
     case 'claim': { // pay the cheapest hand card of the same rank; the key card moves to the key row
       const ctr = s.gc[4], kv = payVals(s);
@@ -408,7 +430,7 @@ function cellScore(s, i, keyed) {
   if (c === s.vault) return keyed ? 900 : keyProgress(s) >= 0.66 ? 8 : 2;
   if (s.gdone[i]) return 0.5;
   if (isKeyCard(s, c)) return !lockPlan(s).want.has(rank(c)) ? 0.5 : s.pack.some((x) => rank(x) === rank(c)) ? 40 : 3;
-  return 4 + 1.6 * K(c, s.S) + (suit(c) === s.S ? 2 : 0);
+  return 4 + 1.6 * spreadK(c, s) + (suit(c) === s.S ? 2 : 0);
 }
 const DISC = [[6, 7, 8], [0, 1, 2], [2, 5, 8], [0, 3, 6]];
 function unseenSpadeRisk(s) {
@@ -442,6 +464,16 @@ function pushAllAct(s, acts) { // simple rule: always flip, always fight/swap if
   for (const t of ['fight', 'swap', 'flip']) if (acts.some((a) => a.t === t)) return { t };
   return acts.find((a) => a.t === 'flee' || a.t === 'skip') ?? { t: 'stop' };
 }
+function takeAllAct(s, acts) { // rule v2 / simple looter: take everything you can pay for; free cards first, then the cheapest
+  let b = null, bc = Infinity;
+  for (const a of acts) {
+    if (a.t !== 'take') continue;
+    const m = s.site.cards[a.j], t = suit(m);
+    const c = t === 3 ? cheapestPass(s, m).cost : t === 0 ? cheapestFight(s, strength(m, s)).cost : -1;
+    if (c < bc) { bc = c; b = a; }
+  }
+  return b ?? { t: 'leave' };
+}
 function heurAct(s, acts, R) {
   if (s.site && P.PUSH && process.env.RULE) { // threshold family: STOPAT loot size, MAXFIGHT cards
     const st = s.site, stopAt = +(process.env.STOPAT ?? 99), maxF = +(process.env.MAXFIGHT ?? 99);
@@ -452,26 +484,18 @@ function heurAct(s, acts, R) {
     return st.loot.length < stopAt && acts.some((a) => a.t === 'flip') ? { t: 'flip' } : { t: 'stop' };
   }
   if (s.site && P.PUSH) return ABL.has('push-all') ? pushAllAct(s, acts) : ABL.has('push-1') ? (s.site.pend >= 0 ? pushAllAct(s, acts) : { t: s.site.n < 1 && acts.some((a) => a.t === 'flip') ? 'flip' : 'stop' }) : pushAct(s, acts, R);
-  if (s.site && !process.env.FREE_LEAVE) { // rule v2: loot everything you can pay for; free cards first, then the cheapest
-    let b = null, bc = Infinity;
-    for (const a of acts) {
-      if (a.t !== 'take') continue;
-      const m = s.site.cards[a.j], t = suit(m);
-      const c = t === 3 ? cheapestPass(s, m).cost : t === 0 ? cheapestFight(s, strength(m, s)).cost : -1;
-      if (c < bc) { bc = c; b = a; }
-    }
-    return b ?? { t: 'leave' };
-  }
+  if (s.site && !process.env.FREE_LEAVE) return takeAllAct(s, acts);
   if (s.site) {
     const st = s.site;
     let bestN = 0.05, bestA = { t: 'leave' };
     const open = st.done.filter((x) => !x).length;
+    const bite = bites(s.gc[4]) ? woundCost(s) : 0; // beating a monster also saves you its bite
     for (const a of acts) {
       if (a.t !== 'take') continue;
       const m = st.cards[a.j], t = suit(m);
       let cost = 0;
       if (t === 3) cost = cheapestPass(s, m).cost;
-      if (t === 0) cost = cheapestFight(s, strength(m, s)).cost;
+      if (t === 0) cost = cheapestFight(s, strength(m, s)).cost - bite;
       // value of holding m: keep value as the last card of pack+m
       const hyp = { ...s, pack: [...s.pack, m] };
       const worth = keepVals(hyp)[s.pack.length] + (open === 1 ? 0.8 : 0);
@@ -489,7 +513,11 @@ function heurAct(s, acts, R) {
   for (const a of acts) {
     let sc;
     if (a.t === 'claim') sc = lockPlan(s).want.has(rank(s.gc[4])) ? 100 : -1;
-    else if (a.t === 'zoom') sc = s.pack.length >= zoomCost(s) + 1 ? 5 + 1.6 * spreadK(s.gc[4], s) : 1;
+    else if (a.t === 'zoom') {
+      const k = spreadK(s.gc[4], s);
+      sc = s.pack.length >= zoomCost(s) + 1 ? 5 + 1.6 * k : 1;
+      if (bites(s.gc[4])) { const { p, str } = unseenSpadeRisk(s); if (!cheapestFight(s, Math.ceil(str))) sc -= 3 * k * p * P.HURT; } // a weak hand fears lairs
+    }
     else if (a.t === 'scout') sc = !scoutCost(s) ? (vi < 0 ? 50 : -1) : s.pack.length >= zoomCost(s) + 2 ? 0.55 * down : 0;
     else {
       sc = cellScore(s, TARGET[a.d], keyed) - 0.25 * DISC[a.d].reduce((x, g) => x + cellScore(s, g, keyed), 0);
@@ -580,7 +608,7 @@ function ablAct(s, acts, R) {
 // The obvious beginner plan (the skill baseline): loot whatever you stand on, step to the next unlooted neighbour, repeat.
 // Pays with the lowest card that is not the key suit. Once keyed: zoom out if the finish card is not visible, then walk to it.
 function obviousAct(s, acts, R) {
-  if (s.site) return heurAct(s, acts, R); // looting is mandatory; free first, then cheapest
+  if (s.site) return takeAllAct(s, acts); // a beginner takes everything they can pay for
   if (acts.some((a) => a.t === 'open')) return { t: 'open' };
   if (acts.some((a) => a.t === 'claim')) return { t: 'claim' }; // a beginner opens every lock they can
   const moves = acts.filter((a) => a.t === 'move');
@@ -601,10 +629,11 @@ function obviousMove(s, moves, R) {
     : s.gup[i] ? rank(s.gc[i]) : 1) + R() * 0.1;
   return moves.reduce((b, m) => (val(TARGET[m.d]) > val(TARGET[b.d]) ? m : b));
 }
-// Skill check: careful bot, but SIMPLE=nav,zoom,claim,end swaps those decisions for the beginner's (pay: use ABL=pay-n).
+// Skill check: careful bot, but SIMPLE=nav,zoom,claim,end,loot swaps those decisions for the beginner's (pay: use ABL=pay-n).
 const SIMPLE = new Set((process.env.SIMPLE ?? '').split(',').filter(Boolean));
 function mixAct(s, acts, R) {
-  if (s.site || acts.some((a) => a.t === 'open')) return heurAct(s, acts, R);
+  if (s.site) return SIMPLE.has('loot') ? takeAllAct(s, acts) : heurAct(s, acts, R);
+  if (acts.some((a) => a.t === 'open')) return heurAct(s, acts, R);
   if (hasKey(s)) return SIMPLE.has('end') ? obviousAct(s, acts, R) : heurAct(s, acts, R);
   const h = heurAct(s, acts, R), moves = acts.filter((a) => a.t === 'move');
   if (acts.some((a) => a.t === 'claim') && (SIMPLE.has('claim') || h.t === 'claim')) return { t: 'claim' };
@@ -693,16 +722,18 @@ if (args[0] === 'luck') {
 } else if (args.length || import.meta.url.endsWith(process.argv[1])) {
   const policy = args[0] ?? 'heur', games = +(args[1] ?? 300), seed0 = +(args[2] ?? 1);
   const res = { win: 0, dry: 0, stall: 0, exhausted: 0 }, steps = [], lens = {}, wl = {};
+  let wounds = 0;
   const t0 = Date.now();
   for (let g = 0; g < games; g++) {
     const s = play(seed0 + g, policy);
     res[s.over]++;
     steps.push(s.steps);
+    wounds += s.stats.wounds ?? 0;
     lens[s.L] = lens[s.L] || [0, 0];
     lens[s.L][1]++;
     if (s.over === 'win') lens[s.L][0]++;
   }
   const avg = steps.reduce((a, b) => a + b, 0) / games;
-  console.log(`${policy}: win ${(100 * res.win / games).toFixed(1)}%  dry ${res.dry}  exhausted ${res.exhausted}  stall ${res.stall}  avg actions ${avg.toFixed(1)}  (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+  console.log(`${policy}: win ${(100 * res.win / games).toFixed(1)}%  dry ${res.dry}  exhausted ${res.exhausted}  stall ${res.stall}  avg actions ${avg.toFixed(1)}  cards bitten ${(wounds / games).toFixed(1)}  (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
   console.log('win by lock length:', Object.entries(lens).map(([l, [w, n]]) => `L${l}: ${(100 * w / n).toFixed(0)}% of ${n}`).join('  '));
 }
