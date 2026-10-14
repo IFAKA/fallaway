@@ -22,8 +22,6 @@
   --muted: #9a9fab;
   --border: #343a48;
   --radius: 6px;
-  /* Declared here so it resolves with each world's colours. */
-  --veil: color-mix(in srgb, var(--bg-glow) 65%, var(--accent));
 
   position: relative;
   isolation: isolate;
@@ -231,6 +229,12 @@
 
 .menu[data-phase='zooming'] .menu-title {
   translate: 0 -12px;
+}
+
+/* Real deck: no dive, the whole menu just fades out. */
+.menu[data-phase='leaving'] {
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .menu .zoom-veil {

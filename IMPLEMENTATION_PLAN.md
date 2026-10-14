@@ -14,7 +14,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 
 ---
 
-## Phase 0: Open decisions
+## Phase 0: Open decisions ✅ done
 
 - [x] **No rename.** Fallaway keeps `framer-motion` as it is. Do not add `motion` or touch existing imports; the menu code from the prototype must be adapted to import from `framer-motion` if it uses animation.
 - [x] Flavour text (expedition / survival tone, not combat):
@@ -34,7 +34,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 
   Check red/black readability in Phase 6 before the art is final.
 
-## Phase 1: Move the menu into Fallaway
+## Phase 1: Move the menu into Fallaway ✅ done
 
 - [x] Create a branch in `fallaway` (`feat/world-menu`).
 - [x] Add dependencies to `app/`: `three`, `@react-three/fiber`, `@react-three/drei`, `@use-gesture/react`, `zustand` (+ `@types/three`).
@@ -48,21 +48,23 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [x] Load the menu with `React.lazy`, so three.js is a separate chunk. Until Phase 2 it only opens at `?menu`; Play dives and then shows the current game screen.
 - [x] Build passes; the bundle report shows three.js only in the menu chunk (`Menu-*.js`, 255 kB gzipped). Main chunk 134.1 kB gzipped (was 133.2 kB).
 
-## Phase 2: Screen flow
+## Phase 2: Screen flow ✅ done
 
-- [ ] `App.tsx` switches between menu → dive → game (the existing `Practice` / `GuideApp`).
-- [ ] Move the mode bar ("Play on screen" / "Play with a real deck") into the menu.
-- [ ] Menu buttons:
-  - [ ] **Play**: resume the saved game (`zoom-v4`) if there is one, otherwise a new deal.
-  - [ ] **Daily deal**: start today's deal (existing logic in `Practice.tsx`).
-  - [ ] **Real deck**: open the real-deck guide (`GuideApp`).
-  - [ ] **How to play**: show the existing `Rules` component (rename the prototype's "Guide" button to avoid clashing with real-deck "guide").
-- [ ] Remember the chosen world in a **new** key (e.g. `fallaway-world-v1`).
-- [ ] Skip the menu and the dive for shared `?seed=` links (go straight to the board, never load three.js).
-- [ ] Returning player with a game in progress: offer **Continue** without forcing the full dive (short version or straight in).
-- [ ] **Back to menu** button in the game (confirm if a game is in progress). Remove the prototype's Esc-to-menu: Esc already cancels a pending move in `Practice.tsx`.
-- [ ] Turn the menu's arrow-key handler fully off while a game is open (arrows move in the game).
-- [ ] Start the board's deal animation only after the colour wash clears, so it isn't hidden.
+- [x] `App.tsx` switches between menu → dive → game (the existing `Practice` / `GuideApp`). The menu is the front door at `/`; the `?menu` preview is gone.
+- [x] Move the mode bar ("Play on screen" / "Play with a real deck") into the menu. In the game, the bar is now `← Menu · Fallaway · <world> · on screen / with a real deck`. `zoom-mode` still records the last game screen opened.
+- [x] Menu buttons (the menu takes one `onEnter(destination, arrival)` callback; types in `src/screens.ts`):
+  - [x] **Play** / **Continue**: with an unfinished saved game (`zoom-v4`) the main button is **Continue** (resumes it); otherwise **Play** deals a new game, so a finished game is not shown again.
+  - [x] **Daily deal**: starts today's deal, or resumes it if it is the unfinished saved game (same ranking rule as the in-game button).
+  - [x] **Real deck**: opens the real-deck guide (`GuideApp`, which resumes its own save). No world dive: the menu fades out and the guide fades in (a physical deck has no world to dive into).
+  - [x] **How to play**: the rules in a dialog. `HowToPlay` in `shared.tsx` is shared with the on-screen game's first-visit intro.
+- [x] Remember the chosen world in a **new** key: `fallaway-world-v1` (the world id).
+- [x] **One on-screen game per world** (decided after testing): each world has its own save and its own Continue. Earth keeps `zoom-v4`, so existing saved games carry on there; Sugar Rose and Moon use `fallaway-game-candy-v1` and `fallaway-game-moon-v1` (`GAME_KEYS` in `src/save.ts`). One shared win record (`zoom-stats-v1`); the daily deal still counts once a day. The real-deck guide keeps one save (`zoom-guide-v4`).
+- [x] **A reload stays in the game** (decided after testing): the open game screen is kept in `sessionStorage` (`fallaway-screen-v1`), so a reload resumes it while a new tab or a later visit starts at the menu.
+- [x] Skip the menu and the dive for shared `?seed=` links (straight to the on-screen board, never loading three.js). Also `?play` (opens the last game screen; for the test scripts, Phase 8) and server rendering (`render.tsx` still renders the game).
+- [x] Returning player with a game in progress: **Continue** goes straight in, no dive.
+- [x] **Back to menu** button in the game. **No confirm:** both games save every step, so leaving loses nothing and Continue / Real deck pick up where you left off. No Esc-to-menu (Esc still cancels a pending move).
+- [x] Turn the menu's arrow-key handler fully off while a game is open (the menu is unmounted), and while How to play is open.
+- [x] Start the board's deal animation only after the colour wash clears: `App` shows the wash (`.arrive-veil`, colour from `worldTheme`'s `--veil`) and `Practice` deals the cards when it is gone (`dealt` prop). Continue and reduced motion skip the wash.
 
 ## Phase 3: Theme system for the board
 

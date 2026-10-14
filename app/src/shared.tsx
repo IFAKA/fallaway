@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LIMIT, RUN, START } from '../../core/engine'
 
@@ -17,6 +17,23 @@ export function Rules() {
       <li><B>Zoom OUT</B> (pay 1 card, free once your key is built) turns the whole map face-up.</li>
       <li><B>You lose</B> when your hand is empty and there is nothing to dig, claim or finish where you stand.</li>
     </ol>
+  )
+}
+
+/** the rules in a dialog (menu "How to play" and the on-screen game's first-visit intro); `children` adds notes under the rules */
+export function HowToPlay({ onClose, close = 'Got it', children }: { onClose: () => void; close?: string; children?: ReactNode }) {
+  // focus the close button so Enter closes the dialog, without scrolling the rules to their end (autoFocus would)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => closeRef.current?.focus({ preventScroll: true }), [])
+  return (
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="how-to-play">
+      <div className="card-modal">
+        <h2 id="how-to-play">How to play Fallaway</h2>
+        <Rules />
+        {children}
+        <button ref={closeRef} className="big" onClick={onClose}>{close}</button>
+      </div>
+    </div>
   )
 }
 

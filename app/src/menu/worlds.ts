@@ -33,6 +33,8 @@ export const worldTheme = (world: World) =>
     '--bg-glow': world.glow,
     '--accent': world.accent,
     '--accent-text': world.accentText,
+    /** The colour wash at the end of the dive, picked up by the game screen as it clears. */
+    '--veil': `color-mix(in srgb, ${world.glow} 65%, ${world.accent})`,
   }) as CSSProperties
 
 export const WORLDS: readonly World[] = [

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion, useIsPresent } from 'framer-motion'
 import {
@@ -7,15 +7,14 @@ import {
   rank, rankLabel, scout, scoutCost, stop, suit, take, takers, vaultCell, viewOf, visibleCards, whereIs,
 } from '../../core/engine'
 import type { Advice, State } from '../../core/engine'
-import { B, Fit, Rules } from './shared'
+import { inProgress, load } from './save'
+import type { Meta } from './save'
+import type { Start } from './screens'
+import { B, Fit, HowToPlay } from './shared'
 import { WHY, defenders, lbl, suitTxt } from './text'
 
-const KEY = 'zoom-v4' // v4: hunger + digging rules; older saves are other games
 const SEEN = 'zoom-seen-intro-v4'
 const STATS = 'zoom-stats-v1'
-/** a game counts toward your record only if you played it yourself: no Undo, no Hint, not a replayed or shared deal, the daily deal once */
-interface Meta { id: string; ranked: boolean; daily: string | null }
-interface Saved { seed: number; history: State[]; meta?: Meta }
 interface Stats { played: number; won: number; streak: number; best: number; last: string; daily: Record<string, { win: boolean; steps: number; keys: number }> }
 const NO_STATS: Stats = { played: 0, won: 0, streak: 0, best: 0, last: '', daily: {} }
 function loadStats(): Stats {
@@ -27,16 +26,23 @@ const dailySeed = (day: string) => { let h = 2166136261; for (const ch of day) h
 const newMeta = (seed: number, ranked: boolean, daily: string | null = null): Meta => ({ id: `${seed}:${Date.now()}`, ranked, daily })
 type Pending = { kind: 'move'; d: number } | { kind: 'scout' } | null
 
-function load(): Saved | null {
-  try {
-    const s = localStorage.getItem(KEY)
-    const v = s ? (JSON.parse(s) as Saved) : null
-    // a damaged or foreign save must not break the page: start fresh instead
-    return v && Array.isArray(v.history) && v.history.length && Array.isArray(v.history[v.history.length - 1]?.gc) ? v : null
-  } catch { return null }
-}
 const freshSeed = () => 1 + Math.floor(Math.random() * 999999)
 const urlSeed = () => { if (typeof location === 'undefined') return null; const v = new URLSearchParams(location.search).get('seed'); return v ? +v : null }
+const deal = (seed: number, ranked: boolean, daily: string | null = null) => ({ history: [newGame(seed)], meta: newMeta(seed, ranked, daily) })
+
+/** the first game on screen: a shared deal from the URL wins, then what the menu asked for */
+function begin(start: Start, saveKey: string): { history: State[]; meta: Meta } {
+  const us = urlSeed()
+  if (us) return deal(us, false) // a shared deal: someone may already know it
+  const saved = load(saveKey)
+  const resume = saved && { history: saved.history, meta: saved.meta ?? newMeta(saved.seed, false) }
+  if (start === 'daily') {
+    const day = today()
+    if (resume && resume.meta.daily === day && inProgress(saved)) return resume // today's deal, still going
+    return deal(dailySeed(day), !loadStats().daily[day], day)
+  }
+  return start === 'resume' && resume ? resume : deal(freshSeed(), true)
+}
 const DIRS = ['up', 'down', 'left', 'right']
 
 // ---------- the stage: every card lives in ONE coordinate space, so it slides, flips and flies off instead of jumping ----------
@@ -193,32 +199,28 @@ function Guide({ s, pending, tipOn }: { s: State; pending: Pending; tipOn: boole
 
 function Intro({ onClose }: { onClose: () => void }) {
   return (
-    <div className="modal">
-      <div className="card-modal">
-        <h2>How to play Fallaway</h2>
-        <Rules />
-        <p className="muted">The strip “Your {'♣'}” shows where each card of your suit is. The box beside the table always says what to do next; <B>Hint</B> suggests a move and shows the odds while you dig.</p>
-        <p className="muted">Keyboard: <B>arrows</B> move, <B>1–9, 0</B> pick a hand card (left to right), <B>Space</B> dig or flip, <B>S</B> stop, <B>F</B> flee, <B>L</B> leave a key card, <B>Z</B> zoom out, <B>U</B> undo, <B>N</B> new game, <B>Esc</B> cancel.</p>
-        <p className="muted">Every deal can be won or lost: a careful player wins about half the time. Your <B>record</B> counts the games you play yourself (no Undo, no Hint). <B>Daily deal</B> is the same deal for everyone today.</p>
-        <button className="big" onClick={onClose}>Got it — let me play</button>
-      </div>
-    </div>
+    <HowToPlay onClose={onClose} close="Got it — let me play">
+      <p className="muted">The strip “Your {'♣'}” shows where each card of your suit is. The box beside the table always says what to do next; <B>Hint</B> suggests a move and shows the odds while you dig.</p>
+      <p className="muted">Keyboard: <B>arrows</B> move, <B>1–9, 0</B> pick a hand card (left to right), <B>Space</B> dig or flip, <B>S</B> stop, <B>F</B> flee, <B>L</B> leave a key card, <B>Z</B> zoom out, <B>U</B> undo, <B>N</B> new game, <B>Esc</B> cancel.</p>
+      <p className="muted">Every deal can be won or lost: a careful player wins about half the time. Your <B>record</B> counts the games you play yourself (no Undo, no Hint). <B>Daily deal</B> is the same deal for everyone today.</p>
+    </HowToPlay>
   )
 }
 
+interface PracticeProps {
+  /** where this game is saved (each world keeps its own game) */
+  saveKey: string
+  /** which game to show first (a `?seed=` deal in the URL overrides it) */
+  start?: Start
+  /** false while the menu's colour wash is still clearing: the cards are dealt once it is gone */
+  dealt?: boolean
+}
+
 // ---------- app ----------
-export default function Practice() {
-  const saved = useMemo(() => load(), [])
-  const [history, setHistory] = useState<State[]>(() => {
-    const us = urlSeed()
-    if (us) return [newGame(us)]
-    return saved?.history?.length ? saved.history : [newGame(freshSeed())]
-  })
-  const [meta, setMeta] = useState<Meta>(() => {
-    const us = urlSeed()
-    if (us) return newMeta(us, false) // a shared deal: someone may already know it
-    return saved?.history?.length ? saved.meta ?? newMeta(saved.seed, false) : newMeta(0, true)
-  })
+export default function Practice({ saveKey, start = 'resume', dealt = true }: PracticeProps) {
+  const [first] = useState(() => begin(start, saveKey))
+  const [history, setHistory] = useState<State[]>(first.history)
+  const [meta, setMeta] = useState<Meta>(first.meta)
   const [stats, setStats] = useState<Stats>(loadStats)
   const [copied, setCopied] = useState(false)
   const [pending, setPending] = useState<Pending>(null)
@@ -228,7 +230,7 @@ export default function Practice() {
   const [dir, setDir] = useState<number | null>(null)
   const s = history[history.length - 1]
 
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify({ seed: s.seed, history: history.slice(-150), meta })) } catch { /* storage full: ignore */ } }, [history, s.seed, meta])
+  useEffect(() => { try { localStorage.setItem(saveKey, JSON.stringify({ seed: s.seed, history: history.slice(-150), meta })) } catch { /* storage full: ignore */ } }, [saveKey, history, s.seed, meta])
   /** record a game that just ended, once */
   const record = (n: State) => {
     if (!n.over || !meta.ranked || hint || stats.last === meta.id) return
@@ -450,7 +452,7 @@ export default function Practice() {
             ))}
           </div>
           <AnimatePresence custom={{ dest, dir }}>
-            {placed.map(p => <StageCard key={p.id} p={p} />)}
+            {dealt && placed.map(p => <StageCard key={p.id} p={p} />)}
           </AnimatePresence>
         </div>
         </Fit>
