@@ -37,6 +37,41 @@ export function HowToPlay({ onClose, close = 'Got it', children }: { onClose: ()
   )
 }
 
+/** the largest the on-screen board grows on a big window: a little over its own size, still crisp */
+const MAX_SCALE = 1.2
+
+/**
+ * Scale a fixed-size table to fill the space it is given, width and height, so the whole table is on screen without
+ * scrolling; `aside` (the actions) sits right beside it, or above it on a phone where the table only fits the width
+ * (see `.fitscreen` in App.css). One coordinate space for the animations, as in Fit.
+ */
+export function FitScreen({ w, h, aside, children }: { w: number; h: number; aside?: ReactNode; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const asideRef = useRef<HTMLDivElement>(null)
+  const [k, setK] = useState(1)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      const side = getComputedStyle(el).flexDirection === 'row'
+      const gap = parseFloat(getComputedStyle(el).columnGap) || 0
+      const room = el.clientWidth - (side ? (asideRef.current?.offsetWidth ?? 0) + gap : 0)
+      setK(Math.max(0.2, side ? Math.min(MAX_SCALE, room / w, el.clientHeight / h) : Math.min(1, room / w)))
+    }
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [w, h])
+  return (
+    <div ref={ref} className="fitscreen">
+      <div className="fitscreen-board" style={{ width: w * k, height: h * k }}>
+        <div style={{ width: w, height: h, transform: `scale(${k})`, transformOrigin: 'top left' }}>{children}</div>
+      </div>
+      {aside && <div ref={asideRef} className="fitscreen-aside">{aside}</div>}
+    </div>
+  )
+}
+
 /** Scale a fixed-size table down to the available width (phones), keeping one coordinate space for the animations. */
 export function Fit({ w, h, children }: { w: number; h: number; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)

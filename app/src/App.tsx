@@ -75,18 +75,20 @@ export default function App() {
     if (exitOf(to) === 'direct') setScreen(menu())
     else setScreen({ ...screen, leaving: true })
   }
+  const bar = (
+    <span className="modes">
+      <button onClick={toMenu} disabled={leaving}>← Menu</button>
+      <b className="title">Fallaway</b>
+      <span className="muted">{to.mode === 'guide' ? `${world.name} · with a real deck` : world.name}</span>
+    </span>
+  )
   // the world themes the whole game screen: table, panels, card backs (on screen only) and a calm backdrop (themes.css)
   return (
     <div className="game" data-world={world.id} data-mode={to.mode} style={theme}>
       <Backdrop active={world.id} tone="calm" />
-      <div className="modes">
-        <button onClick={toMenu} disabled={leaving}>← Menu</button>
-        <b className="title">Fallaway</b>
-        <span className="muted">{world.name} · {to.mode === 'guide' ? 'with a real deck' : 'on screen'}</span>
-      </div>
       {to.mode === 'guide'
-        ? <GuideApp />
-        : <Practice key={world.id} saveKey={GAME_KEYS[world.id]} start={to.start} dealt={arrival === 'direct'} flavour={world.flavour} world={world.id} />}
+        ? <><div className="modesbar">{bar}</div><GuideApp /></>
+        : <Practice key={world.id} saveKey={GAME_KEYS[world.id]} start={to.start} dealt={arrival === 'direct'} flavour={world.flavour} world={world.id} bar={bar} />}
       {leaving
         ? <Veil via={exitOf(to)} motion="cover" style={theme} onDone={() => setScreen(menu(exitOf(to)))} />
         : <Veil via={arrival} motion="clear" style={theme} onDone={() => setScreen(game(to))} />}

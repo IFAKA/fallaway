@@ -35,7 +35,7 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .kchip.table { background: #b8932a; color: #fff; border-color: #ffd36b; }
 .kchip.gone { background: #4a1f24; color: #a66; text-decoration: line-through; border-color: #733; }
 .kchip.vault { margin-left: 6px; border-color: #ffd36b; }
-.klegend { margin-left: 10px; display: inline-flex; gap: 4px; align-items: center; }
+.klegend { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; vertical-align: middle; }
 
 .maparea { display: flex; gap: 20px; align-items: flex-start; }
 .mapwrap { position: relative; padding: 34px 40px; background: var(--felt); border-radius: 12px; border: 2px dashed var(--line); }
@@ -153,7 +153,38 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .actions { min-height: 46px; }
 
 /* ---- shell + real-deck guide ---- */
-.modes { display: flex; gap: 10px; align-items: center; padding: 10px 16px 0; }
+.modes { display: inline-flex; gap: 10px; align-items: center; }
+.modesbar { padding: 10px 16px 0; }
+
+/* ---- the on-screen game: one header line, the tracker, then the table scaled to the rest of the window (no scrolling),
+   with only the actions you can take right now beside it (FitScreen in shared.tsx) ---- */
+.onscreen { height: 100vh; grid-template-columns: minmax(0, 1fr); }
+/* what to do now, on top of the actions: a title and one line (Coach in Practice.tsx) */
+.coach { background: var(--felt); border: 2px solid #c8a21b; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+.coach-title { font-weight: 800; font-size: 16px; color: #ffd36b; margin-bottom: 2px; }
+.coach-line { font-size: 14px; line-height: 1.45; }
+.onscreen .advice { font-size: 13px; line-height: 1.4; margin-bottom: 10px; }
+.onscreen .advice .small { display: block; margin: 6px 0 0; }
+.onscreen .boardcol { min-height: 0; gap: 8px; }
+.onscreen .topbar { gap: 10px; row-gap: 6px; }
+.onscreen .lock { padding: 5px 10px; }
+button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.fitscreen { flex: 1; min-height: 0; display: flex; gap: 16px; align-items: flex-start; }
+.fitscreen-board { flex: none; }
+.fitscreen-aside { width: 260px; flex: none; }
+.onscreen .actions { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.onscreen .actions button { text-align: left; }
+.onscreen .actions small { display: block; font-size: 12px; font-weight: 400; opacity: .85; }
+.onscreen .endbox { text-align: left; padding: 10px 12px; }
+.onscreen .endbox .result { font-size: 19px; line-height: 1.2; margin-bottom: 4px; }
+.endbtns { display: flex; flex-direction: column; gap: 6px; }
+/* phones: the table fits the width, the actions go under it in a row, the page scrolls to the instructions */
+@media (max-width: 900px) {
+  .onscreen { height: auto; }
+  .fitscreen { flex-direction: column; flex: none; }
+  .fitscreen-aside { width: 100%; }
+  .onscreen .actions { flex-direction: row; flex-wrap: wrap; }
+}
 /* full-screen washes between the menu and a game screen (see Veil in App.tsx): the world's colour around a dive
    (--veil, set by worldTheme), or the menu's dark for Real deck's plain fade */
 .veil { position: fixed; inset: 0; z-index: 60; background: var(--veil); }
@@ -208,11 +239,10 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .fit { width: 100%; max-width: 720px; overflow: hidden; }
 @media (max-width: 600px) {
   .play { padding: 6px; gap: 8px; }
-  .modes { flex-wrap: wrap; padding: 6px 6px 0; gap: 6px; }
+  .modes { flex-wrap: wrap; gap: 6px; } .modesbar { padding: 6px 6px 0; }
   .modes button { padding: 6px 8px; font-size: 13px; }
   .topbar { gap: 6px; } .topbar button { padding: 6px 9px; font-size: 13px; }
   .actions { gap: 6px; } button.big { font-size: 14px; padding: 8px 12px; }
   .pbtn { min-width: 0; flex: 1 0 22px; padding: 8px 0; font-size: 12px; }
-  .klegend { display: none; }
 }
 

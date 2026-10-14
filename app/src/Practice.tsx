@@ -13,8 +13,8 @@ import type { Start } from './screens'
 import type { Flavour, WorldId } from './menu/worlds'
 import { RegionArt } from './regionArt'
 import { BiomeDive } from './biome'
-import { B, Fit, HowToPlay } from './shared'
-import { WHY, defenders, lbl, suitTxt } from './text'
+import { B, FitScreen, HowToPlay } from './shared'
+import { WHY, lbl, suitTxt } from './text'
 
 const SEEN = 'zoom-seen-intro-v4'
 const STATS = 'zoom-stats-v1'
@@ -117,89 +117,59 @@ function nearMiss(s: State): string {
   return 'You lost'
 }
 
-// ---------- plain-language guide ----------
-function keyLine(s: State): ReactNode {
-  const plan = keyPlan(s)
+// ---------- what to do now: a title and one short line, beside the board ----------
+// The board, the tracker chips and the action buttons show the rest; How to play has the full rules.
+function coachText(s: State, pending: Pending, tipOn: boolean): { title: string; line: ReactNode } | null {
   const sym = SUITS[s.S]
-  if (plan.dead) return <>Your key is now <B>impossible</B>: every run of {RUN} needs a {sym} card that is gone.</>
-  const run = plan.ranks.map(r => rankLabel(r) + sym).join(' ')
-  if (!plan.missing.length) {
-    const vi = vaultCell(s)
-    if (vi === 4) return <>You <B>hold the key</B> ({run}) and stand on the finish card: press <B>Finish</B>!</>
-    if (vi >= 0) return <>You <B>hold the key</B> ({run}). The finish card <B>A{sym}</B> is on your map: walk until it is the middle card.</>
-    return <>You <B>hold the key</B> ({run}). Find the finish card <B>A{sym}</B>: zooming out is free now.</>
+  const d = s.dig
+  if (s.over) return null // the result box says it
+  const extra = overflow(s)
+  if (extra) return { title: `Hand full: discard ${extra}`, line: <>Your hand holds {s.limit}. Click the card you need least.</> }
+  if (pending?.kind === 'move') return { title: `Move ${DIRS[pending.d]}`, line: <>Click a hand card to <B>eat</B>: the one you need least. <B>Esc</B> cancels.</> }
+  if (pending?.kind === 'scout') return { title: 'Zoom OUT', line: <>Click a hand card to pay. The whole map turns face-up.</> }
+  if (d && d.found >= 0) {
+    const needs = lockWant(s, visibleCards(s)).want.has(rank(d.found))
+    return {
+      title: `Key card ${label(d.found)}`,
+      line: <>Pay a <B>glowing {rankLabel(rank(d.found))}</B> to take it now, or leave it waiting by the pile.{tipOn && <> Your key {needs ? 'needs' : 'does not need'} it.</>}</>,
+    }
   }
-  const miss = plan.missing.map(r => {
-    const c = (r - 2) * 4 + s.S
-    const seen = visibleCards(s).includes(c)
-    const hold = s.hand.some(x => rank(x) === r)
-    return `${rankLabel(r)}${sym} (${seen ? (hold ? 'in sight, and you hold a ' + rankLabel(r) + ': go claim it' : `in sight: you need any ${rankLabel(r)} to open it`) : 'not seen yet'})`
-  }).join(', ')
-  return <>Key row: {plan.have.length}/{RUN} of <B>{run}</B>. Missing {miss}.</>
+  if (d && d.hostile >= 0) {
+    return {
+      title: `Hostile ${label(d.hostile)}`,
+      line: fighters(s).length
+        ? <>Beat it with a <B>higher {SUITS[suit(d.hostile)]}</B> (click a glowing card), or flee.</>
+        : <>You hold no {SUITS[suit(d.hostile)]} higher: <B>flee</B> (you lose the loot and 1 random card).</>,
+    }
+  }
+  if (d) {
+    const hs = suit(s.gc[4])
+    const top = s.hand.filter(c => suit(c) === hs).sort((a, b) => rank(b) - rank(a))[0]
+    return {
+      title: `Digging ${label(s.gc[4])}: ${d.flips}/${d.depth}`,
+      line: <>Flip on, or stop and keep the loot. {top === undefined
+        ? <>You hold no {suitTxt(hs)}: a hostile card means fleeing.</>
+        : <>Hostile {suitTxt(hs)} below {lbl(top)} are beaten.</>}{tipOn && <> Risk: <B>{Math.round(100 * bustChance(viewOf(s), hs))}%</B>.</>}</>,
+    }
+  }
+  const here = s.gc[4]
+  const title = s.steps === 0 ? 'How to start' : 'Your move'
+  const walk = <>Move with the arrows (each step <B>eats a card</B>){canDig(s) ? <>, or zoom in to dig {lbl(here)}</> : null}.</>
+  if (canFinish(s)) return { title, line: <>You hold your key on the finish card: <B>Finish</B>!</> }
+  if (canClaim(s)) return { title, line: <>Claim the key card {lbl(here)}: show your {lbl(s.hand[claimers(s)[0]])} (you keep it).</> }
+  if (isKeyCard(s, here)) return { title, line: <>Key card {lbl(here)} opens with any <B>{rankLabel(rank(here))}</B>, and you hold none. {walk}</> }
+  if (keyPlan(s).dead) return { title, line: <>Your key can no longer be built: every run of {RUN} needs a {sym} that is gone.</> }
+  if (hasKey(s)) return { title, line: vaultCell(s) >= 0 ? <>You hold your key: walk to the finish card <B>A{sym}</B>.</> : <>You hold your key: find <B>A{sym}</B> (zooming out is free).</> }
+  return { title, line: walk }
 }
 
-function Guide({ s, pending, tipOn }: { s: State; pending: Pending; tipOn: boolean }) {
-  const sym = SUITS[s.S]
-  let title: string
-  let body: ReactNode
-  const d = s.dig
-  if (s.over === 'win') { title = 'You won!'; body = <>You reached the finish card holding your key. Press <B>New game</B> for another deal.</> }
-  else if (s.over) { title = 'You lost'; body = <>{WHY[s.why!]} You had {keyCount(s)}/{RUN} of your key. Tip: <B>eat the cards you need least</B> — keep the ranks that open key cards and the high cards of each suit for fights.</> }
-  else if (overflow(s)) { title = `Discard ${overflow(s)} card${overflow(s) > 1 ? 's' : ''}`; body = <>Your hand holds at most {s.limit}. Click the card you need least.</> }
-  else if (pending?.kind === 'move') { title = `Move ${DIRS[pending.d]}: eat a card`; body = <>Every step costs <B>one card</B> from your hand (your supplies). Click the card you need least. Cards tagged 🔑 open a key card you can see; high cards win fights. Changed your mind? <B>Cancel</B>.</> }
-  else if (pending?.kind === 'scout') { title = 'Zoom OUT: pay a card'; body = <>Click one card in your hand to pay. Then every card on the map turns face-up, so you can plan your route.</> }
-  else if (d && d.found >= 0) {
-    const r = rankLabel(rank(d.found))
-    const needed = lockWant(s, visibleCards(s)).want.has(rank(d.found))
-    title = `KEY CARD: ${label(d.found)}`
-    body = <>
-      <div>It does not count as a flip. <B>Take it now</B>: click a <B>glowing</B> {r} in your hand to pay it (it goes to GONE), and {lbl(d.found)} joins your key row.</div>
-      <div>Or <B>Leave it</B>: it waits beside the pile and joins the map on your next move. Walk onto it and show any {r} to claim it for free, if it has not fallen off the map by then.</div>
-      {tipOn && <div className="keyline">{needed ? <>Your key needs {lbl(d.found)}.</> : <>Your key does not need {lbl(d.found)} right now.</>}</div>}
-    </>
-  } else if (d && d.hostile >= 0) {
-    const f = fighters(s)
-    title = `HOSTILE: ${label(d.hostile)}`
-    body = <>
-      <div>In a {suitTxt(suit(s.gc[4]))} region every {suitTxt(suit(s.gc[4]))} card is hostile. {f.length
-        ? <>Beat it with <B>one higher {SUITS[suit(d.hostile)]}</B> from your hand: click a <B>glowing</B> card. Your card is spent, {lbl(d.hostile)} joins your loot, and you may keep digging.</>
-        : <>You hold no {SUITS[suit(d.hostile)]} higher than {lbl(d.hostile)}: you must <B>Flee</B>.</>}</div>
-      <div>Or <B>Flee</B>: you lose this dig's loot{d.loot.length ? <> ({d.loot.map(c => <span key={c}>{lbl(c)} </span>)})</> : null} <B>and one random card</B> from your hand.</div>
-    </>
-  } else if (d) {
-    const hs = suit(s.gc[4])
-    const left = d.depth - d.flips
-    title = `Digging ${label(s.gc[4])}: ${d.flips}/${d.depth} flipped`
-    body = <>
-      <div><B>Flip</B> the next card ({left} left), or <B>Stop</B> and keep your loot. Every {suitTxt(hs)} card is hostile: {defenders(s.hand, hs)}.</div>
-      <div>{left === 1 ? <>Flip the last card safely and the region card {lbl(s.gc[4])} joins your hand too.</> : <>Dig all {d.depth} and the region card {lbl(s.gc[4])} joins your hand too.</>}</div>
-      {tipOn && <div className="keyline">Chance the next card is a hostile you cannot beat: <B>{Math.round(100 * bustChance(viewOf(s), hs))}%</B>.</div>}
-    </>
-  } else {
-    const here = s.gc[4]
-    const vi = vaultCell(s)
-    title = s.steps === 0 ? 'How to start' : 'Your move'
-    body = <>
-      <div className="keyline">{keyLine(s)}</div>
-      <ul className="gl">
-        {isKeyCard(s, here) && (canClaim(s)
-          ? <li>You stand on the key card {lbl(here)}. <B>Claim</B> it: show your {lbl(s.hand[claimers(s)[0]])} (you keep it).</li>
-          : <li>You stand on the key card {lbl(here)}: it opens with <B>any {rankLabel(rank(here))}</B>, and you hold none. Dig to find one.</li>)}
-        {canDig(s) && <li><B>Zoom IN</B> on {lbl(here)} (free): flip its first card, then up to {depthOf(here)} in all. {suitTxt(suit(here))} cards are hostile there.</li>}
-        {canFinish(s) && <li>You stand on the finish card holding your key: press <B>Finish</B>!</li>}
-        {hasKey(s) && vi >= 0 && vi !== 4 && <li>Walk toward the finish card (marked FINISH) until it is the middle card.</li>}
-        {canScout(s) && <li><B>Zoom OUT</B> ({scoutCost(s) ? 'pay 1 card' : 'free now'}) to turn the whole map face-up.</li>}
-        {canMove(s) && <li><B>Move</B> with the arrows (or click a card next to the middle). Each step <B>eats one card</B>. The far row falls off the map, under the pile.</li>}
-        {s.steps < 6 && <li>The tag under each region says how dangerous it is <B>for your hand</B>: <span className="ctag t-safe inl">safe</span> you can beat most of its hostile cards, <span className="ctag t-risky inl">risky</span> some, <span className="ctag t-deadly inl">deadly</span> few.</li>}
-        {s.steps === 0 && <li>Key cards ({sym}) appear only on the map. Stand on one and show <B>any card of the same rank</B> to claim it into your key row.</li>}
-      </ul>
-    </>
-  }
+function Coach({ s, pending, tipOn }: { s: State; pending: Pending; tipOn: boolean }) {
+  const c = coachText(s, pending, tipOn)
+  if (!c) return null
   return (
-    <div className="guide">
-      <div className="gtitle">{title}</div>
-      <div className="gbody">{body}</div>
-      {!tipOn && !s.over && <div className="muted">Stuck? Turn <B>Hint</B> on for a suggestion.</div>}
+    <div className="coach" aria-live="polite">
+      <div className="coach-title">{c.title}</div>
+      <div className="coach-line">{c.line}</div>
     </div>
   )
 }
@@ -207,9 +177,9 @@ function Guide({ s, pending, tipOn }: { s: State; pending: Pending; tipOn: boole
 function Intro({ onClose }: { onClose: () => void }) {
   return (
     <HowToPlay onClose={onClose} close="Got it — let me play">
-      <p className="muted">The strip “Your {'♣'}” shows where each card of your suit is. The box beside the table always says what to do next; <B>Hint</B> suggests a move and shows the odds while you dig.</p>
+      <p className="muted">The strip “Your {'♣'}” shows where each card of your suit is: <span className="klegend"><i className="kchip pack">in key row</i><i className="kchip table">in sight</i><i className="kchip unknown">hidden</i><i className="kchip gone">gone</i></span>. The box beside the table always says what to do next; <B>Hint</B> (💡) suggests a move and shows the odds while you dig, and <B>↶</B> undoes a move.</p>
       <p className="muted">Keyboard: <B>arrows</B> move, <B>1–9, 0</B> pick a hand card (left to right), <B>Space</B> dig or flip, <B>S</B> stop, <B>F</B> flee, <B>L</B> leave a key card, <B>Z</B> zoom out, <B>U</B> undo, <B>N</B> new game, <B>Esc</B> cancel.</p>
-      <p className="muted">Every deal can be won or lost: a careful player wins about half the time. Your <B>record</B> counts the games you play yourself (no Undo, no Hint). <B>Daily deal</B> is the same deal for everyone today.</p>
+      <p className="muted">Every deal can be won or lost: a careful player wins about half the time. Your <B>record</B> counts the games you play yourself (no Undo, no Hint). <B>Daily deal</B> (on the main menu) is the same deal for everyone today.</p>
     </HowToPlay>
   )
 }
@@ -225,13 +195,15 @@ interface PracticeProps {
   flavour?: Flavour
   /** the world whose landscapes the map regions show */
   world?: WorldId
+  /** the screen's own controls (← Menu, title, world), shown first in the game's one header bar */
+  bar?: ReactNode
 }
 
 /** a world's word beside a real term: "gone for good · melted away" */
 const Fl = ({ t }: { t?: string }) => (t ? <i className="flavour"> · {t}</i> : null)
 
 // ---------- app ----------
-export default function Practice({ saveKey, start = 'resume', dealt = true, flavour, world = 'earth' }: PracticeProps) {
+export default function Practice({ saveKey, start = 'resume', dealt = true, flavour, world = 'earth', bar }: PracticeProps) {
   const [first] = useState(() => begin(start, saveKey))
   const [history, setHistory] = useState<State[]>(first.history)
   const [meta, setMeta] = useState<Meta>(first.meta)
@@ -240,7 +212,6 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const [pending, setPending] = useState<Pending>(null)
   const [hint, setHint] = useState(false)
   const [intro, setIntro] = useState(() => { try { return !localStorage.getItem(SEEN) && !urlSeed() } catch { return false } })
-  const logRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const [dir, setDir] = useState<number | null>(null)
   const s = history[history.length - 1]
@@ -258,15 +229,12 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     setStats(next)
     try { localStorage.setItem(STATS, JSON.stringify(next)) } catch { /* ignore */ }
   }
-  useEffect(() => { logRef.current?.scrollTo({ top: 1e9, behavior: 'smooth' }) }, [s.log.length])
   const closeIntro = () => { try { localStorage.setItem(SEEN, '1') } catch { /* ignore */ } setIntro(false) }
 
   const push = (n: State | null, d: number | null = null) => { if (n) { setDir(d); setHistory(h => [...h, n]); setPending(null); record(n) } }
   const reset = (seed: number, ranked = true, daily: string | null = null) => { setDir(null); setHistory([newGame(seed)]); setPending(null); setMeta(newMeta(seed, ranked, daily)); setCopied(false) }
   const newDeal = () => reset(freshSeed())
   const replay = () => reset(s.seed, false, null)
-  const day = today()
-  const playDaily = () => reset(dailySeed(day), !stats.daily[day], day)
   const undo = () => { if (history.length > 1) { setDir(null); setHistory(h => h.slice(0, -1)); setPending(null); setMeta(m => ({ ...m, ranked: false })) } }
   const share = () => {
     const txt = `Fallaway daily ${meta.daily}: ${s.over === 'win' ? 'WON' : `lost with ${keyCount(s)}/${RUN} of my key`} in ${s.steps} actions. ${location.origin}${location.pathname}`
@@ -394,48 +362,38 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     <>
     {intro && <Intro onClose={closeIntro} />}
     <BiomeDive world={world} suit={biome} card={middleCard}>
-    <div className="play">
+    <div className="play onscreen">
       <div className="boardcol">
-        <div className="topbar">
+        <header className="topbar">
+          {bar}
           <span className="lock">Key: <b>{RUN}</b> in a row of <b className={red ? 'redtxt' : ''}>{SUITS[s.S]}</b> · finish <b className={red ? 'redtxt' : ''}>A{SUITS[s.S]}</b></span>
           <span className={`stat ${s.hand.length <= 3 ? 'warn' : ''}`}>Hand <b>{s.hand.length}</b>/{s.limit}</span>
           <span className="stat">Pile <b>{s.pile.length}</b></span>
           <span className="grow" />
-          <button onClick={() => setIntro(true)}>? How to play</button>
-          <button onClick={undo} disabled={history.length < 2}>Undo</button>
-          <button onClick={replay}>Restart</button>
-          <button onClick={newDeal}>New game</button>
-          <button className={meta.daily === day ? 'on' : ''} onClick={playDaily} title="The same deal for everyone today">Daily deal</button>
-          <button className={hint ? 'on' : ''} onClick={() => { if (!hint && !s.over) setMeta(m => ({ ...m, ranked: false })); setHint(h => !h) }} title="Suggests a move. Games played with hints do not count toward your record.">Hint {hint ? 'on' : 'off'}</button>
-        </div>
+          <button className="icon" onClick={() => setIntro(true)} aria-label="How to play" title="How to play">?</button>
+          <button className="icon" onClick={undo} disabled={history.length < 2} aria-label="Undo" title="Undo (U). Games with Undo do not count toward your record.">↶</button>
+          <button className={`icon ${hint ? 'on' : ''}`} onClick={() => { if (!hint && !s.over) setMeta(m => ({ ...m, ranked: false })); setHint(h => !h) }} aria-label={`Hint: ${hint ? 'on' : 'off'}`} aria-pressed={hint} title="Hint: suggests a move. Games played with hints do not count toward your record.">💡</button>
+        </header>
 
-        <div className="tracker">
+        <div className="tracker" aria-label={`Where your ${SUITS[s.S]} cards are`}>
           <span className="muted">Your {SUITS[s.S]}:</span>
           {Array.from({ length: 12 }, (_, k) => k + 2).map(r => {
             const w = whereIs(s, (r - 2) * 4 + s.S)
             return <span key={r} className={`kchip ${w}`} title={w}>{rankLabel(r)}</span>
           })}
           <span className={`kchip vault ${whereIs(s, s.vault)}`} title="the finish card">A</span>
-          <span className="muted klegend"><i className="kchip pack">in key row</i><i className="kchip table">in sight</i><i className="kchip unknown">hidden</i><i className="kchip gone">gone</i></span>
         </div>
 
-        <div className="actions">
-          {!s.dig && <>
-            <button className={`big ${adv?.kind === 'dig' ? 'glow' : ''}`} disabled={!ready || !canDig(s)} onClick={() => push(dig(s))}>Zoom IN (flip the first card)</button>
-            <button className={`big ${adv?.kind === 'claim' ? 'glow' : ''}`} disabled={!ready || !canClaim(s)} onClick={() => push(claim(s))}>Claim key card</button>
-            <button className={adv?.kind === 'scout' ? 'glow' : ''} disabled={!ready || !canScout(s)} onClick={zoomOut}>Zoom OUT ({sCost ? 'pay 1' : 'free'})</button>
-            <button className={`big ${adv?.kind === 'finish' ? 'glow' : ''}`} disabled={!ready || !canFinish(s)} onClick={() => push(finish(s))}>Finish</button>
-          </>}
-          {s.dig && <>
-            <button className={`big ${adv?.kind === 'flip' ? 'glow' : ''}`} disabled={!canFlip(s)} onClick={() => push(flip(s))}>Flip next ({s.dig.depth - s.dig.flips} left)</button>
-            <button className={adv?.kind === 'stop' ? 'glow' : ''} disabled={!canStop(s)} onClick={() => push(stop(s))}>Stop &amp; keep loot</button>
-            {hostile && <button className={adv?.kind === 'flee' ? 'glow' : ''} disabled={!canFlee(s)} onClick={() => push(flee(s))}>Flee (lose loot + 1 random card)</button>}
-            {found && <button className={`big ${adv?.kind === 'leave' ? 'glow' : ''}`} disabled={!canLeave(s)} onClick={() => push(leave(s))}>Leave it waiting</button>}
-          </>}
-          {pending && <button onClick={() => setPending(null)}>Cancel</button>}
-        </div>
-
-        {s.over && (
+        {/* beside the board: what to do now, the hint's suggestion, then the usable actions (or the result) */}
+        <FitScreen w={STAGE.w} h={STAGE.h} aside={<>
+          <Coach s={s} pending={pending} tipOn={hint} />
+          {tip && !s.over && (
+            <div className="advice">
+              <b>Suggestion:</b> {tip.text}
+              <button className="small" onClick={() => adv && push(applyAdvice(s, adv), adv.kind === 'move' ? adv.d : null)}>Do it</button>
+            </div>
+          )}
+          {s.over ? (
           <div className="endbox">
             <div className="result">{s.over === 'win' ? 'YOU REACHED THE FINISH — YOU WIN' : nearMiss(s)}</div>
             <div className="muted">{s.over === 'lose' && WHY[s.why!]} {s.steps} actions · key {keyCount(s)}/{RUN} · {meta.daily ? `daily deal ${meta.daily}` : `deal #${s.seed}`}</div>
@@ -443,16 +401,32 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
               ? <>Your record: won <b>{stats.won}</b> of {stats.played} ({Math.round(100 * stats.won / stats.played)}%) · streak <b>{stats.streak}</b> · best {stats.best}</>
               : 'Your record starts with your first counted game.'}
               {!meta.ranked && <span className="muted"> · this game was not counted ({!meta.daily && urlSeed() ? 'a shared deal' : 'you used Undo or Hint, or replayed the deal'})</span>}</div>
-            <div className="row">
+            <div className="endbtns">
               <button className="big" onClick={newDeal}>New game</button>
               {meta.daily && <button onClick={share}>{copied ? 'Copied!' : 'Copy result'}</button>}
               <button onClick={replay}>Replay this deal</button>
               <button onClick={undo}>Undo last move</button>
             </div>
           </div>
+        ) : (
+          // only what you can do right now
+          <div className="actions">
+            {!s.dig && ready && <>
+              {canDig(s) && <button className={`big ${adv?.kind === 'dig' ? 'glow' : ''}`} onClick={() => push(dig(s))}>Zoom IN <small>flip the first card</small></button>}
+              {canClaim(s) && <button className={`big ${adv?.kind === 'claim' ? 'glow' : ''}`} onClick={() => push(claim(s))}>Claim key card</button>}
+              {canFinish(s) && <button className={`big ${adv?.kind === 'finish' ? 'glow' : ''}`} onClick={() => push(finish(s))}>Finish</button>}
+              {canScout(s) && <button className={adv?.kind === 'scout' ? 'glow' : ''} onClick={zoomOut}>Zoom OUT <small>{sCost ? 'pay 1 card' : 'free'}</small></button>}
+            </>}
+            {s.dig && <>
+              {canFlip(s) && <button className={`big ${adv?.kind === 'flip' ? 'glow' : ''}`} onClick={() => push(flip(s))}>Flip next <small>{s.dig.depth - s.dig.flips} left</small></button>}
+              {canStop(s) && <button className={adv?.kind === 'stop' ? 'glow' : ''} onClick={() => push(stop(s))}>Stop <small>keep the loot</small></button>}
+              {hostile && canFlee(s) && <button className={adv?.kind === 'flee' ? 'glow' : ''} onClick={() => push(flee(s))}>Flee <small>lose the loot + 1 random card</small></button>}
+              {found && canLeave(s) && <button className={`big ${adv?.kind === 'leave' ? 'glow' : ''}`} onClick={() => push(leave(s))}>Leave it waiting</button>}
+            </>}
+            {pending && <button onClick={() => setPending(null)}>Cancel <small>Esc</small></button>}
+          </div>
         )}
-
-        <Fit w={STAGE.w} h={STAGE.h}>
+        </>}>
         <div className="stage" ref={stageRef} style={{ width: STAGE.w, height: STAGE.h }}>
           <div className="zone" style={{ left: 0, top: 0, width: MAP.w, height: MAP.h }} />
           <div className="zone label" style={{ left: 0, top: DIG.y - 6, width: STAGE.w, height: DIG.h }}>
@@ -481,19 +455,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
         </div>
-        </Fit>
-      </div>
-
-      <div className="panel">
-        <Guide s={s} pending={pending} tipOn={hint} />
-        {tip && (
-          <div className="advice">
-            <b>Suggestion:</b> {tip.text}
-            <button className="small" onClick={() => adv && push(applyAdvice(s, adv), adv.kind === 'move' ? adv.d : null)}>Do it</button>
-          </div>
-        )}
-        <b>Log</b>
-        <div className="log" ref={logRef}>{s.log.map((l, i) => <div key={i} className={l.startsWith('  ') ? 'sub' : ''}>{l}</div>)}</div>
+        </FitScreen>
       </div>
     </div>
     </BiomeDive>

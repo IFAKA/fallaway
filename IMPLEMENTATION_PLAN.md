@@ -21,7 +21,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
   - Earth: "The old map, still there". Terrain: forest, mountain, meadow, desert.
   - Sugar Rose: "Every path is sweet, and sticky". Terrain: candy-cane woods, rock-candy peaks, frosting plains, caramel dunes.
   - Moon: "Quiet ground, long shadows". Terrain: craters, ridges, ice flats, dust sea.
-  - Creature names for the hostile-card silhouettes: decided in Phase 5.
+  - Creature names for the hostile-card silhouettes: decided in Phase 6.
 - [x] World facts are **pure flavour for now** (the terrain line above). No stats on the menu yet; real info (record, daily deal) can come later.
 - [x] Per-suit region art, same terrain for the same suit in every world, only the look changes:
 
@@ -32,7 +32,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
   | ♥ | meadow | frosting plains | ice flats |
   | ♦ | desert | caramel dunes | dust sea |
 
-  Check red/black readability in Phase 6 before the art is final.
+  Check red/black readability in Phase 7 before the art is final.
 
 ## Phase 1: Move the menu into Fallaway ✅ done
 
@@ -60,7 +60,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [x] Remember the chosen world in a **new** key: `fallaway-world-v1` (the world id).
 - [x] **One on-screen game per world** (decided after testing): each world has its own save and its own Continue. Earth keeps `zoom-v4`, so existing saved games carry on there; Sugar Rose and Moon use `fallaway-game-candy-v1` and `fallaway-game-moon-v1` (`GAME_KEYS` in `src/save.ts`). One shared win record (`zoom-stats-v1`); the daily deal still counts once a day. The real-deck guide keeps one save (`zoom-guide-v4`).
 - [x] **A reload stays in the game** (decided after testing): the open game screen is kept in `sessionStorage` (`fallaway-screen-v1`), so a reload resumes it while a new tab or a later visit starts at the menu.
-- [x] Skip the menu and the dive for shared `?seed=` links (straight to the on-screen board, never loading three.js). Also `?play` (opens the last game screen; for the test scripts, Phase 8) and server rendering (`render.tsx` still renders the game).
+- [x] Skip the menu and the dive for shared `?seed=` links (straight to the on-screen board, never loading three.js). Also `?play` (opens the last game screen; for the test scripts, Phase 9) and server rendering (`render.tsx` still renders the game).
 - [x] Returning player with a game in progress: **Continue** resumes it. Like every way into a world it dives in (changed after testing: the transition depends only on the destination, `transitionOf` in `src/screens.ts`, never on the button).
 - [x] **Back to menu** button in the game. **No confirm:** both games save every step, so leaving loses nothing and Continue / Real deck pick up where you left off. No Esc-to-menu (Esc still cancels a pending move).
 - [x] Turn the menu's arrow-key handler fully off while a game is open (the menu is unmounted), and while How to play is open.
@@ -73,7 +73,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [x] Define a theme shape per world: CSS custom properties in `src/themes.css` (`--table`, `--felt`, `--felt-hi`, `--line`, `--line-soft`, `--btn*`, `--card-back`, `--card-back-edge`, `--title`). `App.css` uses the tokens instead of hard-coded greens. Earth is the original green table and also the default. No image assets needed so far.
 - [x] Apply the theme on the game root: `.game` with `data-world`, `data-mode` and `worldTheme()` variables (`--accent`, `--veil`, ...), as the menu does.
 - [x] Card backs per world (face-down map cards and the pile): Earth classic blue, Sugar Rose candy stripes, Moon stars. The pile count has a text shadow so it reads on any back.
-- [x] Table surface and panel styling per world (pile, waiting, gone, key row, dig row, hand, log panel, buttons). Not themed, in any world: card fronts and suit colours, safe / risky / deadly tags, gold highlights, the instruction box, tracker chips (Phase 6).
+- [x] Table surface and panel styling per world (pile, waiting, gone, key row, dig row, hand, log panel, buttons). Not themed, in any world: card fronts and suit colours, safe / risky / deadly tags, gold highlights, the instruction box, tracker chips (Phase 7).
 - [x] Real deck themes the table and panels only: its card backs stay classic (`.game[data-mode='guide']`).
 - [x] Ambient background per world: the menu's `Backdrop` behind the board with `tone="calm"` (fixed, 45% opacity, 2.5× slower). Its CSS moved to `menu/backdrop.css` and its random helper to `menu/random.ts`, so it loads without the menu chunk or three.js.
 - [x] Flavour labels next to the real terms only, in the world's accent colour (`flavour` in `worlds.ts`): "Your hand · your sweets bag", "gone for good (3) · melted away", and on the idle dig row "Zoom in on the middle card to dig here · unwrap it". Nothing is renamed; the real-deck guide shows no flavour.
@@ -88,7 +88,19 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [x] **Entering a biome** (added after testing): digging the middle region dives into its card the way Play enters a world from the menu (`BiomeDive` in `src/biome.tsx`, same timings from `menu/transition.ts`): the board grows until the card fills the screen, the biome's colour washes in and clears on the dig, played inside the biome. Ending the dig covers the board and rises back out of the card. A reload mid-dig shows the biome at once; reduced motion skips the dive.
 - [x] The biome behind the board is a `Panorama` (`src/regionArt.tsx`): the world's one sky (every biome of a world shares it: Earth blue with a sun, Sugar Rose pink with a sugar sun, the Moon's stars with Earth in the sky), and the card's ground repeated in a strip along the bottom at a natural size, toned down so the board stays readable. Scenes draw only their ground and meet themselves at both edges, so the strip has no seams. The `.game` root clips, so the zoomed board never makes the page scroll.
 
-## Phase 5: Themed motion
+## Phase 5: Rebuild the game board (in progress)
+
+Before themed motion: the on-screen game should read as a game, not a debug view, and the whole board should fit the screen.
+
+- [x] **One compact header:** ← Menu · Fallaway · world, the key goal (Key: 4 in a row of ♣ · finish A♣), Hand and Pile, then three small icon buttons: How to play (?), Undo (↶) and Hint (💡). Restart, New game and Daily deal leave the header: Restart and New game stay in the end-of-game box, Daily deal stays on the main menu.
+- [x] **Actions next to the board, only the usable ones:** Zoom IN, Claim key card, Zoom OUT, Finish (or Flip, Stop, Flee, Leave while digging, and Cancel) show only when you can use them, in a column beside the board instead of a full-width row of mostly disabled buttons. The end-of-game box sits there too.
+- [x] **Tracker:** the "Your ♣" chips stay on one compact line; their legend (in key row, in sight, hidden, gone) moves into How to play.
+- [x] **No scrolling:** header, tracker and the whole board (map, pile, key row, dig row, hand) fit in the window; the board scales to the height left as well as the width. The side panel (instructions and log) stays beside it. On phones the board fits the width and the panel goes below.
+- [x] No rule changes; keyboard shortcuts unchanged. `npm run build && npm test && npm run lint` pass.
+- [x] **No log, one short coach line** (after testing): the log panel is hidden, and the long instruction card became a title and one line of what to do now (Coach in `Practice.tsx`), on top of the actions beside the board. Key progress is left to the tracker chips and the key row; the full rules stay in How to play. With no side panel the screen is one column.
+- Checked at 1900×960, 1440×900, 1280×720 and 390×844: no page scroll on desktop (the board scales from 0.84 to 1.16), the whole board in the first screen on a phone, no disabled action buttons, the end-of-game box beside the table. `FitScreen` in `src/shared.tsx`; the real-deck guide keeps its own layout and its own bar.
+
+## Phase 6: Themed motion
 
 - [ ] Land falling away on a move: Earth crumbles, Sugar Rose melts, Moon floats off.
 - [ ] Dig effect when zooming in: soil cracks, wrapper tears, dust puffs.
@@ -96,14 +108,14 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [ ] Win / lose screens per world (sunrise, candy confetti, Earth rising).
 - [ ] Reduced motion: every themed animation falls back to a simple fade.
 
-## Phase 6: Must stay true in every world
+## Phase 7: Must stay true in every world
 
 - [ ] Rank and suit readable at a glance; red and black suits clearly different (check contrast).
 - [ ] Safe / risky / deadly tags use the same colours in every world.
 - [ ] Real-deck mode themes the background and panels only, never the card art (players look at physical cards).
 - [ ] No rule, number or text in `RULES.md` changes.
 
-## Phase 7: Performance and phones
+## Phase 8: Performance and phones
 
 - [ ] Menu fallback for slow or low-power phones (static poster or 2D carousel) while three.js loads or if WebGL is missing.
 - [ ] Canvas unmounts during the game (already true in the prototype).
@@ -111,7 +123,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [ ] Check the gzipped size of the first load and of the game alone (target: game alone stays about 130 kB).
 - [ ] `bun scripts/render.tsx` still server-renders (the lazy menu keeps three.js out of it).
 
-## Phase 8: Tests and tooling
+## Phase 9: Tests and tooling
 
 - [ ] Browser scripts (`play`, `keys`, `record`, `walk`, `phone`, `shot*`) can skip the menu (e.g. a `?seed=` or `?play` URL).
 - [ ] Make the Chrome path in `app/scripts/*.mjs` configurable (it is hard-coded for macOS; this machine is Windows).
@@ -119,7 +131,7 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [ ] `npm run build && npm test && npm run lint` pass.
 - [ ] Update `app/README.md` and `AGENTS.md` (menu, themes, new storage key, new scripts).
 
-## Phase 9: Release
+## Phase 10: Release
 
 - [ ] Update the link preview (`og.png`) and screenshots if the first screen changes.
 - [ ] Full release checklist from `app/README.md`.
