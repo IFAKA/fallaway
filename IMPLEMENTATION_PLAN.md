@@ -61,19 +61,22 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [x] **One on-screen game per world** (decided after testing): each world has its own save and its own Continue. Earth keeps `zoom-v4`, so existing saved games carry on there; Sugar Rose and Moon use `fallaway-game-candy-v1` and `fallaway-game-moon-v1` (`GAME_KEYS` in `src/save.ts`). One shared win record (`zoom-stats-v1`); the daily deal still counts once a day. The real-deck guide keeps one save (`zoom-guide-v4`).
 - [x] **A reload stays in the game** (decided after testing): the open game screen is kept in `sessionStorage` (`fallaway-screen-v1`), so a reload resumes it while a new tab or a later visit starts at the menu.
 - [x] Skip the menu and the dive for shared `?seed=` links (straight to the on-screen board, never loading three.js). Also `?play` (opens the last game screen; for the test scripts, Phase 8) and server rendering (`render.tsx` still renders the game).
-- [x] Returning player with a game in progress: **Continue** goes straight in, no dive.
+- [x] Returning player with a game in progress: **Continue** resumes it. Like every way into a world it dives in (changed after testing: the transition depends only on the destination, `transitionOf` in `src/screens.ts`, never on the button).
 - [x] **Back to menu** button in the game. **No confirm:** both games save every step, so leaving loses nothing and Continue / Real deck pick up where you left off. No Esc-to-menu (Esc still cancels a pending move).
 - [x] Turn the menu's arrow-key handler fully off while a game is open (the menu is unmounted), and while How to play is open.
-- [x] Start the board's deal animation only after the colour wash clears: `App` shows the wash (`.arrive-veil`, colour from `worldTheme`'s `--veil`) and `Practice` deals the cards when it is gone (`dealt` prop). Continue and reduced motion skip the wash.
+- [x] **Leave a world the way you entered it** (added while testing Phase 3): ← Menu from an on-screen game covers the table in the world's colour, then the menu opens at the planet's surface and the camera rises back out to the carousel (the dive played backwards: `camera="rise"` in `WorldCarousel`); the menu text returns as the camera settles. From Real deck the menu just fades back in. Reduced motion: straight back. One `Veil` component in `App.tsx` does every wash (`clear` arriving, `cover` leaving, `hold` while the menu chunk loads).
+- [x] **Transition timing** (tuned after testing, following https://emilkowal.ski/ui/great-animations: short, ease-out, quicker for frequent actions): dive and rise 0.8 s each with an ease-out camera (was 1.5 s, ease-in), wash 0.25 s to cover and 0.4 s to clear (0.2 s on the way back, so the pull-back is seen), menu text 0.2 s, world switching 0.4 s. About 1.2 s from click to cards and 1.1 s back to the menu (was about 2.5 s each). All in `menu/transition.ts`, `menu.css`, `backdrop.css` and the `.veil` rules in `App.css`.
+- [x] Start the board's deal animation only after the colour wash clears: `App` shows the wash (`Veil`, colour from `worldTheme`'s `--veil`) and `Practice` deals the cards when it is gone (`dealt` prop). Reduced motion skips the wash.
 
-## Phase 3: Theme system for the board
+## Phase 3: Theme system for the board ✅ done
 
-- [ ] Define a theme shape per world: CSS custom properties (table, panels, accents, card back) + optional assets.
-- [ ] Apply the theme on the game root (`data-world="earth"` + variables), the same way the menu does.
-- [ ] Card backs per world (face-down map cards and the pile).
-- [ ] Table surface and panel styling per world (pile, waiting, gone, key row, dig row, hand).
-- [ ] Ambient background per world (reuse the menu backdrops, lighter and slower behind the board).
-- [ ] Flavour labels next to the real terms only (e.g. "GONE · eaten"); never rename Move, Zoom in/out, GONE, key row, finish.
+- [x] Define a theme shape per world: CSS custom properties in `src/themes.css` (`--table`, `--felt`, `--felt-hi`, `--line`, `--line-soft`, `--btn*`, `--card-back`, `--card-back-edge`, `--title`). `App.css` uses the tokens instead of hard-coded greens. Earth is the original green table and also the default. No image assets needed so far.
+- [x] Apply the theme on the game root: `.game` with `data-world`, `data-mode` and `worldTheme()` variables (`--accent`, `--veil`, ...), as the menu does.
+- [x] Card backs per world (face-down map cards and the pile): Earth classic blue, Sugar Rose candy stripes, Moon stars. The pile count has a text shadow so it reads on any back.
+- [x] Table surface and panel styling per world (pile, waiting, gone, key row, dig row, hand, log panel, buttons). Not themed, in any world: card fronts and suit colours, safe / risky / deadly tags, gold highlights, the instruction box, tracker chips (Phase 6).
+- [x] Real deck themes the table and panels only: its card backs stay classic (`.game[data-mode='guide']`).
+- [x] Ambient background per world: the menu's `Backdrop` behind the board with `tone="calm"` (fixed, 45% opacity, 2.5× slower). Its CSS moved to `menu/backdrop.css` and its random helper to `menu/random.ts`, so it loads without the menu chunk or three.js.
+- [x] Flavour labels next to the real terms only, in the world's accent colour (`flavour` in `worlds.ts`): "Your hand · your sweets bag", "gone for good (3) · melted away", and on the idle dig row "Zoom in on the middle card to dig here · unwrap it". Nothing is renamed; the real-deck guide shows no flavour.
 
 ## Phase 4: Per-suit region art
 

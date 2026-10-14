@@ -1,5 +1,5 @@
 /* World menu. Loaded with the lazy menu chunk. Every rule is scoped under
-   .menu or .backdrop so nothing here can restyle the game (App.css), and the
+   .menu (the backdrop has its own backdrop.css) so nothing here can restyle the game (App.css), and the
    game's global button / .title / .actions / .stage rules are overridden or
    avoided with menu-* class names. */
 
@@ -34,7 +34,7 @@
   padding: clamp(1rem, 5vh, 4rem) 1rem clamp(1rem, 3vh, 2rem);
   color: var(--text);
   background: radial-gradient(circle at 50% 55%, var(--bg-glow), var(--bg) 70%);
-  transition: --bg-glow 0.8s ease, --accent 0.8s ease;
+  transition: --bg-glow 0.4s ease-out, --accent 0.4s ease-out;
   overflow: hidden;
   color-scheme: dark;
 }
@@ -219,22 +219,30 @@
 /* ---------- Zoom into a world ---------- */
 
 .menu > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
-  transition: opacity 0.35s ease, translate 0.35s ease;
+  transition: opacity 0.2s ease-out, translate 0.2s ease-out;
 }
 
-.menu[data-phase='zooming'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
+/* Diving in, and still at the surface on the way back: only the planet shows. */
+.menu[data-phase='zooming'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil),
+.menu[data-phase='surfacing'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
   opacity: 0;
   translate: 0 12px;
 }
 
-.menu[data-phase='zooming'] .menu-title {
+.menu[data-phase='zooming'] .menu-title,
+.menu[data-phase='surfacing'] .menu-title {
   translate: 0 -12px;
+}
+
+/* Rising out of a world: the text comes back once the camera has nearly settled. */
+.menu[data-phase='rising'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
+  transition-delay: var(--veil-delay);
 }
 
 /* Real deck: no dive, the whole menu just fades out. */
 .menu[data-phase='leaving'] {
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease-out;
 }
 
 .menu .zoom-veil {
@@ -251,208 +259,35 @@
   transition: opacity var(--veil-duration) ease-in var(--veil-delay);
 }
 
-/* ---------- Themed backdrop (scoped to .backdrop so a game screen can reuse it) ---------- */
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.backdrop .backdrop-layer {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.8s ease;
-}
-
-.backdrop .backdrop-layer[data-active='true'] {
+/* Back from a world: the wash covers the surface until the first frame, then clears as the camera pulls back. */
+.menu[data-phase='surfacing'] .zoom-veil {
   opacity: 1;
 }
 
-.backdrop .backdrop-layer[data-active='false'] * {
-  animation-play-state: paused;
+.menu[data-phase='rising'] .zoom-veil {
+  transition: opacity var(--rise-veil-duration) ease-out;
 }
 
-/* Earth: drifting clouds and birds */
-.backdrop .cloud {
-  position: absolute;
-  left: 0;
-  width: 220px;
-  height: 56px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.07);
-  filter: blur(2px);
-  scale: var(--scale);
-  animation: menu-drift linear infinite;
+/* Back from Real deck: no world to rise out of, the menu just fades in. */
+.menu[data-from='fade'] {
+  animation: menu-appear 0.25s ease-out;
 }
 
-.backdrop .cloud::before,
-.backdrop .cloud::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  background: inherit;
-}
-
-.backdrop .cloud::before {
-  width: 90px;
-  height: 80px;
-  left: 40px;
-  top: -40px;
-}
-
-.backdrop .cloud::after {
-  width: 110px;
-  height: 100px;
-  left: 100px;
-  top: -55px;
-}
-
-.backdrop .bird {
-  position: absolute;
-  left: 0;
-  width: 22px;
-  fill: none;
-  stroke: rgb(235 231 218 / 0.45);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  animation: menu-drift linear infinite;
-}
-
-@keyframes menu-drift {
+@keyframes menu-appear {
   from {
-    translate: -260px 0;
-  }
-  to {
-    translate: calc(100vw + 260px) 0;
-  }
-}
-
-/* Sugar Rose: falling sprinkles and floating lollipops */
-.backdrop .sprinkle {
-  position: absolute;
-  top: 0;
-  width: 5px;
-  height: 16px;
-  border-radius: 4px;
-  opacity: 0.55;
-  animation: menu-fall linear infinite;
-}
-
-@keyframes menu-fall {
-  from {
-    transform: translateY(-5vh) rotate(0deg);
-  }
-  to {
-    transform: translateY(105vh) rotate(540deg);
-  }
-}
-
-.backdrop .lollipop {
-  position: absolute;
-  width: var(--size);
-  height: var(--size);
-  border-radius: 50%;
-  background: repeating-conic-gradient(#ff79ad 0 30deg, #fff0f6 30deg 60deg);
-  box-shadow: inset 0 0 0 4px rgb(255 255 255 / 0.35);
-  opacity: 0.18;
-  animation: menu-bob 6s ease-in-out infinite;
-}
-
-.backdrop .lollipop::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: calc(50% - 3px);
-  width: 6px;
-  height: calc(var(--size) * 1.1);
-  border-radius: 3px;
-  background: #fff0f6;
-}
-
-@keyframes menu-bob {
-  50% {
-    translate: 0 -14px;
-    rotate: 8deg;
-  }
-}
-
-/* Moon: stars, shooting stars and a distant Earth */
-.backdrop .star {
-  position: absolute;
-  border-radius: 50%;
-  background: #fff;
-  animation: menu-twinkle ease-in-out infinite;
-}
-
-@keyframes menu-twinkle {
-  50% {
-    opacity: 0.15;
-  }
-}
-
-.backdrop .shooting-star {
-  position: absolute;
-  top: 12%;
-  left: 70%;
-  width: 140px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #fff, transparent);
-  rotate: -30deg;
-  opacity: 0;
-  animation: menu-shoot 7s ease-in infinite;
-}
-
-.backdrop .shooting-star-late {
-  top: 30%;
-  left: 30%;
-  animation-delay: 3.5s;
-}
-
-@keyframes menu-shoot {
-  0%,
-  85% {
     opacity: 0;
-    translate: 0 0;
   }
-  88% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    translate: -260px 150px;
-  }
-}
-
-.backdrop .distant-earth {
-  position: absolute;
-  top: 9%;
-  right: 7%;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 40%, #5cc98f 0 18%, transparent 19%),
-    radial-gradient(circle at 65% 65%, #5cc98f 0 14%, transparent 15%),
-    radial-gradient(circle at 30% 30%, #6fb7ff, #1f5a96 70%);
-  box-shadow: 0 0 24px rgb(111 183 255 / 0.4);
-  opacity: 0.7;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .menu,
   .menu > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil),
-  .menu .menu-btn,
-  .backdrop .backdrop-layer {
+  .menu .menu-btn {
     transition: none;
   }
 
-  .backdrop * {
-    animation: none !important;
+  .menu[data-from='fade'] {
+    animation: none;
   }
 }
 

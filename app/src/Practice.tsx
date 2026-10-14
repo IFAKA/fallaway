@@ -10,6 +10,7 @@ import type { Advice, State } from '../../core/engine'
 import { inProgress, load } from './save'
 import type { Meta } from './save'
 import type { Start } from './screens'
+import type { Flavour } from './menu/worlds'
 import { B, Fit, HowToPlay } from './shared'
 import { WHY, defenders, lbl, suitTxt } from './text'
 
@@ -214,10 +215,15 @@ interface PracticeProps {
   start?: Start
   /** false while the menu's colour wash is still clearing: the cards are dealt once it is gone */
   dealt?: boolean
+  /** the world's words shown beside the real terms (never instead of them) */
+  flavour?: Flavour
 }
 
+/** a world's word beside a real term: "gone for good · melted away" */
+const Fl = ({ t }: { t?: string }) => (t ? <i className="flavour"> · {t}</i> : null)
+
 // ---------- app ----------
-export default function Practice({ saveKey, start = 'resume', dealt = true }: PracticeProps) {
+export default function Practice({ saveKey, start = 'resume', dealt = true, flavour }: PracticeProps) {
   const [first] = useState(() => begin(start, saveKey))
   const [history, setHistory] = useState<State[]>(first.history)
   const [meta, setMeta] = useState<Meta>(first.meta)
@@ -430,10 +436,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true }: Pr
         <div className="stage" style={{ width: STAGE.w, height: STAGE.h }}>
           <div className="zone" style={{ left: 0, top: 0, width: MAP.w, height: MAP.h }} />
           <div className="zone label" style={{ left: 0, top: DIG.y - 6, width: STAGE.w, height: DIG.h }}>
-            <span>{s.dig ? `Digging ${label(s.gc[4])}: up to ${s.dig.depth} cards · ${SUITS[suit(s.gc[4])]} cards are hostile` : 'Zoom in on the middle card to dig here'}</span>
+            <span>{s.dig ? `Digging ${label(s.gc[4])}: up to ${s.dig.depth} cards · ${SUITS[suit(s.gc[4])]} cards are hostile` : <>Zoom in on the middle card to dig here<Fl t={flavour?.dig} /></>}</span>
           </div>
           <div className="zone label" style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h }}>
-            <span>{`Your hand (${s.hand.length}/${s.limit}): food, weapons, and ranks that open key cards`}</span>
+            <span>Your hand<Fl t={flavour?.hand} /> ({s.hand.length}/{s.limit}): food, weapons, and ranks that open key cards</span>
           </div>
           <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6 }} />
           {arrows.map(a => (
@@ -446,7 +452,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true }: Pr
           <div className="zone keyzone" style={{ left: KEYROW.x - 8, top: KEYROW.y - 8, width: KEYROW.w + 16, height: CH + 16 }} />
           <div className="piletxt" style={{ left: KEYROW.x, top: KEYROW.y + CH + 10, width: KEYROW.w, textAlign: 'left' }}>key row ({keyCount(s)}/{RUN} in a row): safe, never spent</div>
           <div className="gonebox" style={{ left: GONE.x, top: GONE.y + 8, width: GONE.w }}>
-            <div className="muted">gone for good ({s.gone.length})</div>
+            <div className="muted">gone for good ({s.gone.length})<Fl t={flavour?.gone} /></div>
             {[0, 1, 2, 3].map(su => goneSorted.some(c => suit(c) === su) && (
               <div key={su} className={`gonerow ${su === 1 || su === 2 ? 'red' : ''}`}>{SUITS[su]} {goneSorted.filter(c => suit(c) === su).map(c => rankLabel(rank(c))).join(' ')}</div>
             ))}

@@ -1,14 +1,16 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { WorldId } from './worlds'
-import { seededRandom } from './planets/geometry'
+import { seededRandom } from './random'
+import './backdrop.css'
 
 // Decoration layouts are generated once so they stay put between renders.
 const random = seededRandom(99)
 const pick = <T,>(items: readonly T[]) => items[Math.floor(random() * items.length)]
 const pct = (from = 0, span = 100) => `${(from + random() * span).toFixed(1)}%`
+// --slow stretches every animation (the calm backdrop behind the game board)
 const timing = (duration: number, delay: number) => ({
-  animationDuration: `${duration}s`,
-  animationDelay: `${delay}s`,
+  animationDuration: `calc(${duration}s * var(--slow, 1))`,
+  animationDelay: `calc(${delay}s * var(--slow, 1))`,
 })
 const style = (values: Record<string, string | number>) => values as CSSProperties
 
@@ -33,7 +35,7 @@ const lollipops = [
   { left: '88%', top: '16%', size: 54, delay: -2 },
   { left: '10%', top: '72%', size: 46, delay: -4 },
   { left: '84%', top: '68%', size: 64, delay: -1 },
-].map(({ size, delay, ...at }) => style({ ...at, '--size': `${size}px`, animationDelay: `${delay}s` }))
+].map(({ size, delay, ...at }) => style({ ...at, '--size': `${size}px`, animationDelay: `calc(${delay}s * var(--slow, 1))` }))
 
 const stars = Array.from({ length: 70 }, () => {
   const at = { left: pct(), top: pct() }
@@ -71,10 +73,16 @@ const LAYERS: Record<WorldId, ReactNode> = {
 
 const IDS = Object.keys(LAYERS) as WorldId[]
 
+interface BackdropProps {
+  active: WorldId
+  /** `calm`: fainter and slower, behind the game board so it never competes with the cards. */
+  tone?: 'full' | 'calm'
+}
+
 /** Themed decorations behind a screen; layers cross-fade when the world changes. */
-export function Backdrop({ active }: { active: WorldId }) {
+export function Backdrop({ active, tone = 'full' }: BackdropProps) {
   return (
-    <div className="backdrop" aria-hidden="true">
+    <div className="backdrop" data-tone={tone} aria-hidden="true">
       {IDS.map((id) => (
         <div key={id} className="backdrop-layer" data-active={id === active}>
           {LAYERS[id]}

@@ -9,6 +9,16 @@ export interface Terrain {
   name: string
 }
 
+/** A few words shown beside the real terms on the board (never instead of them). */
+export interface Flavour {
+  /** Beside the dig row. */
+  dig: string
+  /** Beside "Your hand". */
+  hand: string
+  /** Beside "gone for good". */
+  gone: string
+}
+
 export interface World {
   id: WorldId
   name: string
@@ -21,6 +31,7 @@ export interface World {
   accentText: string
   /** One entry per suit, in `SUITS` order. */
   terrain: readonly Terrain[]
+  flavour: Flavour
 }
 
 type TerrainNames = readonly [spades: string, hearts: string, diamonds: string, clubs: string]
@@ -46,6 +57,7 @@ export const WORLDS: readonly World[] = [
     accent: '#5cc98f',
     accentText: '#062114',
     terrain: terrain(['Mountains', 'Meadow', 'Desert', 'Forest']),
+    flavour: { dig: 'break ground', hand: 'your pack', gone: 'lost to the wild' },
   },
   {
     id: 'candy',
@@ -55,6 +67,7 @@ export const WORLDS: readonly World[] = [
     accent: '#ff79ad',
     accentText: '#3a0619',
     terrain: terrain(['Rock-candy peaks', 'Frosting plains', 'Caramel dunes', 'Candy-cane woods']),
+    flavour: { dig: 'unwrap it', hand: 'your sweets bag', gone: 'melted away' },
   },
   {
     id: 'moon',
@@ -64,5 +77,6 @@ export const WORLDS: readonly World[] = [
     accent: '#a596ff',
     accentText: '#130b3a',
     terrain: terrain(['Ridges', 'Ice flats', 'Dust sea', 'Crater field']),
+    flavour: { dig: 'sift the dust', hand: 'your supply crate', gone: 'drifted off' },
   },
 ]

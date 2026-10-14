@@ -2,6 +2,7 @@ import { Component, StrictMode } from 'react'
 import type { ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './App.css'
+import './themes.css'
 import App from './App.tsx'
 import { GAME_KEYS } from './save'
 
