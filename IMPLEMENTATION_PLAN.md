@@ -1,0 +1,114 @@
+# Implementation plan: 3D world menu + Fallaway game
+
+Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as its front door, and theme the game board per world.
+
+**Decided**
+- Worlds are **design and themes only**. No rule changes: `core/engine.ts`, `RULES.md` and the simulator results stay untouched.
+- The menu moves **into `fallaway/app`** (the shipped product with the engine, tests, saves and deploy), not the other way round.
+
+**Rules to respect** (from `fallaway/AGENTS.md`)
+- `core/engine.ts` is the only implementation of the rules. Never reimplement a rule in the app.
+- One game, no difficulty levels. A world never makes the game easier or harder.
+- Keep the `localStorage` keys (`zoom-v4`, `zoom-guide-v4`, `zoom-mode`, `zoom-seen-intro-v4`, `zoom-stats-v1`). New data goes in new keys.
+- Before finishing any phase: `npm run build && npm test && npm run lint` in `app/`.
+
+---
+
+## Phase 0: Open decisions
+
+- [x] **No rename.** Fallaway keeps `framer-motion` as it is. Do not add `motion` or touch existing imports; the menu code from the prototype must be adapted to import from `framer-motion` if it uses animation.
+- [x] Flavour text (expedition / survival tone, not combat):
+  - Earth: "The old map, still there". Terrain: forest, mountain, meadow, desert.
+  - Sugar Rose: "Every path is sweet, and sticky". Terrain: candy-cane woods, rock-candy peaks, frosting plains, caramel dunes.
+  - Moon: "Quiet ground, long shadows". Terrain: craters, ridges, ice flats, dust sea.
+  - Creature names for the hostile-card silhouettes: decided in Phase 5.
+- [x] World facts are **pure flavour for now** (the terrain line above). No stats on the menu yet; real info (record, daily deal) can come later.
+- [x] Per-suit region art, same terrain for the same suit in every world, only the look changes:
+
+  | Suit | Earth | Sugar Rose | Moon |
+  |---|---|---|---|
+  | ♣ | forest | candy-cane woods | crater field |
+  | ♠ | mountains | rock-candy peaks | ridges |
+  | ♥ | meadow | frosting plains | ice flats |
+  | ♦ | desert | caramel dunes | dust sea |
+
+  Check red/black readability in Phase 6 before the art is final.
+
+## Phase 1: Move the menu into Fallaway
+
+- [ ] Create a branch in `fallaway`.
+- [ ] Add dependencies to `app/`: `three`, `@react-three/fiber`, `@react-three/drei`, `@use-gesture/react`, `zustand` (+ `@types/three`).
+- [ ] Copy into `app/src/menu/`: `Menu`, `WorldCarousel`, `CarouselItem`, `Backdrop`, `worlds/*` (Earth, Candy, Moon, geometry, OnSurface), `worlds.ts`, `store.ts`, `transition.ts`, `reducedMotion.ts`.
+- [ ] Move the menu CSS into its own file, scoped under `.menu`, so it can't clash with `App.css`.
+- [ ] Rename the title to *Fallaway* everywhere (it already is) and check fonts match the app.
+- [ ] Load the menu with `React.lazy`, so three.js is a separate chunk.
+- [ ] Build passes; the bundle report shows three.js only in the menu chunk.
+
+## Phase 2: Screen flow
+
+- [ ] `App.tsx` switches between menu → dive → game (the existing `Practice` / `GuideApp`).
+- [ ] Move the mode bar ("Play on screen" / "Play with a real deck") into the menu.
+- [ ] Menu buttons:
+  - [ ] **Play**: resume the saved game (`zoom-v4`) if there is one, otherwise a new deal.
+  - [ ] **Daily deal**: start today's deal (existing logic in `Practice.tsx`).
+  - [ ] **Real deck**: open the real-deck guide (`GuideApp`).
+  - [ ] **How to play**: show the existing `Rules` component (rename the prototype's "Guide" button to avoid clashing with real-deck "guide").
+- [ ] Remember the chosen world in a **new** key (e.g. `fallaway-world-v1`).
+- [ ] Skip the menu and the dive for shared `?seed=` links (go straight to the board, never load three.js).
+- [ ] Returning player with a game in progress: offer **Continue** without forcing the full dive (short version or straight in).
+- [ ] **Back to menu** button in the game (confirm if a game is in progress). Remove the prototype's Esc-to-menu: Esc already cancels a pending move in `Practice.tsx`.
+- [ ] Turn the menu's arrow-key handler fully off while a game is open (arrows move in the game).
+- [ ] Start the board's deal animation only after the colour wash clears, so it isn't hidden.
+
+## Phase 3: Theme system for the board
+
+- [ ] Define a theme shape per world: CSS custom properties (table, panels, accents, card back) + optional assets.
+- [ ] Apply the theme on the game root (`data-world="earth"` + variables), the same way the menu does.
+- [ ] Card backs per world (face-down map cards and the pile).
+- [ ] Table surface and panel styling per world (pile, waiting, gone, key row, dig row, hand).
+- [ ] Ambient background per world (reuse the menu backdrops, lighter and slower behind the board).
+- [ ] Flavour labels next to the real terms only (e.g. "GONE · eaten"); never rename Move, Zoom in/out, GONE, key row, finish.
+
+## Phase 4: Per-suit region art
+
+- [ ] Region art on face-up map cards, one look per suit per world (e.g. Earth: ♣ forest, ♠ mountains, ♥ meadow, ♦ desert).
+- [ ] Keep the rank + suit corner index on every card; art never covers it.
+- [ ] Explored (sideways) regions still read clearly with art on.
+- [ ] Key-suit cards and the finish card keep a distinct look (they are not regions).
+
+## Phase 5: Themed motion
+
+- [ ] Land falling away on a move: Earth crumbles, Sugar Rose melts, Moon floats off.
+- [ ] Dig effect when zooming in: soil cracks, wrapper tears, dust puffs.
+- [ ] Hostile card appearing: a world creature silhouette (expedition danger, not a "kill" moment).
+- [ ] Win / lose screens per world (sunrise, candy confetti, Earth rising).
+- [ ] Reduced motion: every themed animation falls back to a simple fade.
+
+## Phase 6: Must stay true in every world
+
+- [ ] Rank and suit readable at a glance; red and black suits clearly different (check contrast).
+- [ ] Safe / risky / deadly tags use the same colours in every world.
+- [ ] Real-deck mode themes the background and panels only, never the card art (players look at physical cards).
+- [ ] No rule, number or text in `RULES.md` changes.
+
+## Phase 7: Performance and phones
+
+- [ ] Menu fallback for slow or low-power phones (static poster or 2D carousel) while three.js loads or if WebGL is missing.
+- [ ] Canvas unmounts during the game (already true in the prototype).
+- [ ] `node scripts/phone.mjs`: nothing overflows at phone size, menu included.
+- [ ] Check the gzipped size of the first load and of the game alone (target: game alone stays about 130 kB).
+- [ ] `bun scripts/render.tsx` still server-renders (the lazy menu keeps three.js out of it).
+
+## Phase 8: Tests and tooling
+
+- [ ] Browser scripts (`play`, `keys`, `record`, `walk`, `phone`, `shot*`) can skip the menu (e.g. a `?seed=` or `?play` URL).
+- [ ] Make the Chrome path in `app/scripts/*.mjs` configurable (it is hard-coded for macOS; this machine is Windows).
+- [ ] New script: menu smoke test (pick each world, Play, dive, board appears, back to menu).
+- [ ] `npm run build && npm test && npm run lint` pass.
+- [ ] Update `app/README.md` and `AGENTS.md` (menu, themes, new storage key, new scripts).
+
+## Phase 9: Release
+
+- [ ] Update the link preview (`og.png`) and screenshots if the first screen changes.
+- [ ] Full release checklist from `app/README.md`.
+- [ ] Deploy to GitHub Pages and test on a real phone.
