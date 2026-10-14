@@ -36,13 +36,17 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 
 ## Phase 1: Move the menu into Fallaway
 
-- [ ] Create a branch in `fallaway`.
-- [ ] Add dependencies to `app/`: `three`, `@react-three/fiber`, `@react-three/drei`, `@use-gesture/react`, `zustand` (+ `@types/three`).
-- [ ] Copy into `app/src/menu/`: `Menu`, `WorldCarousel`, `CarouselItem`, `Backdrop`, `worlds/*` (Earth, Candy, Moon, geometry, OnSurface), `worlds.ts`, `store.ts`, `transition.ts`, `reducedMotion.ts`.
-- [ ] Move the menu CSS into its own file, scoped under `.menu`, so it can't clash with `App.css`.
-- [ ] Rename the title to *Fallaway* everywhere (it already is) and check fonts match the app.
-- [ ] Load the menu with `React.lazy`, so three.js is a separate chunk.
-- [ ] Build passes; the bundle report shows three.js only in the menu chunk.
+- [x] Create a branch in `fallaway` (`feat/world-menu`).
+- [x] Add dependencies to `app/`: `three`, `@react-three/fiber`, `@react-three/drei`, `@use-gesture/react`, `zustand` (+ `@types/three`).
+- [x] Copy into `app/src/menu/`: `Menu`, `WorldCarousel`, `CarouselItem`, `Backdrop`, `planets/*` (Earth, Candy, Moon, geometry, OnSurface, parts), `worlds.ts`, `store.ts`, `transition.ts`, `reducedMotion.ts`.
+  - The scene folder is `planets/`, not `worlds/`, so it can't be confused with `worlds.ts`.
+  - Shared pieces: `createPlanet` (mesh + surface points), `PlanetBody`, `Spin`, `Scatter`, and `Sprites` for the backdrop.
+  - The prototype's `GameBoard` and `useGame` store were not copied: `Menu` takes `onEnter` (called when the dive ends) and `children` (extra menu buttons), and keeps its dive state locally. The prototype used no `motion` code, so nothing needed adapting to `framer-motion`.
+  - World facts are the Phase 0 terrain per suit.
+- [x] Move the menu CSS into its own file (`menu/menu.css`, loaded with the menu chunk), scoped under `.menu`. The backdrop rules are scoped under `.backdrop` so Phase 3 can reuse it behind the board. Classes that clash with `App.css` were renamed (`menu-title`, `menu-stage`, `menu-actions`, `menu-btn`), and keyframes are prefixed `menu-`.
+- [x] Rename the title to *Fallaway* everywhere (it already is) and check fonts match the app: the menu uses the app's `system-ui`, not the prototype's monospace.
+- [x] Load the menu with `React.lazy`, so three.js is a separate chunk. Until Phase 2 it only opens at `?menu`; Play dives and then shows the current game screen.
+- [x] Build passes; the bundle report shows three.js only in the menu chunk (`Menu-*.js`, 255 kB gzipped). Main chunk 134.1 kB gzipped (was 133.2 kB).
 
 ## Phase 2: Screen flow
 

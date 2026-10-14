@@ -1,0 +1,471 @@
+/* World menu. Loaded with the lazy menu chunk. Every rule is scoped under
+   .menu or .backdrop so nothing here can restyle the game (App.css), and the
+   game's global button / .title / .actions / .stage rules are overridden or
+   avoided with menu-* class names. */
+
+/* Registered so theme colours can transition between worlds. */
+@property --bg-glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #1b4048;
+}
+
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #5cc98f;
+}
+
+.menu {
+  --bg: #0d1016;
+  --text: #ebe7da;
+  --muted: #9a9fab;
+  --border: #343a48;
+  --radius: 6px;
+  /* Declared here so it resolves with each world's colours. */
+  --veil: color-mix(in srgb, var(--bg-glow) 65%, var(--accent));
+
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Everything below scales with the window height too, so Play is never below the fold. */
+  padding: clamp(1rem, 5vh, 4rem) 1rem clamp(1rem, 3vh, 2rem);
+  color: var(--text);
+  background: radial-gradient(circle at 50% 55%, var(--bg-glow), var(--bg) 70%);
+  transition: --bg-glow 0.8s ease, --accent 0.8s ease;
+  overflow: hidden;
+  color-scheme: dark;
+}
+
+.menu *,
+.menu *::before,
+.menu *::after {
+  box-sizing: border-box;
+}
+
+.menu[data-world='candy'] {
+  --radius: 999px;
+}
+
+.menu[data-world='moon'] {
+  --radius: 12px;
+}
+
+/* ---------- Title ---------- */
+
+.menu .menu-title {
+  margin: 0;
+  font-size: clamp(2.5rem, min(14vw, 15vh), 9rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-wrap: balance;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.menu[data-world='earth'] .menu-title {
+  background-image: linear-gradient(180deg, #f4f1e4 35%, #8fd6a4 70%, #4f9fd0);
+  filter: drop-shadow(0 6px 24px rgb(92 201 143 / 0.25));
+}
+
+.menu[data-world='candy'] .menu-title {
+  background-image: repeating-linear-gradient(-45deg, #fff4f8 0 14px, #ff8fbb 14px 28px);
+  filter: drop-shadow(0 4px 0 #b83a6e) drop-shadow(0 10px 28px rgb(255 121 173 / 0.35));
+}
+
+.menu[data-world='moon'] .menu-title {
+  background-image: linear-gradient(180deg, #ffffff 30%, #c3bbff);
+  filter: drop-shadow(0 0 28px rgb(165 150 255 / 0.55));
+}
+
+/* ---------- Stage ---------- */
+
+.menu .menu-stage {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  flex: 1;
+  min-height: 160px;
+}
+
+.menu .drag-surface {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.menu .drag-surface:active {
+  cursor: grabbing;
+}
+
+/* Covers the whole menu so the dive can fill the screen. Sits above the
+   backdrop (same layer, later in the DOM) and below the menu text. */
+.menu .canvas-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ---------- World info ---------- */
+
+.menu .world-label,
+.menu .world-name,
+.menu .world-tagline {
+  text-align: center;
+}
+
+.menu .world-label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.menu .world-name {
+  margin: 0.25rem 0;
+  font-size: clamp(1.5rem, min(5vw, 5vh), 3rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.menu .world-tagline {
+  margin: 0 0 clamp(0.5rem, 2vh, 1rem);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.menu .world-terrain {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 0.75rem;
+  margin: 0 0 clamp(0.75rem, 3vh, 1.5rem);
+}
+
+.menu .terrain {
+  padding: 0 1.25rem;
+  text-align: center;
+}
+
+.menu .terrain + .terrain {
+  border-left: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.menu .terrain dt {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.menu .terrain dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.menu .menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.menu .menu-btn {
+  min-height: 44px;
+  padding: 0 1.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: var(--radius);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.2s, background-color 0.2s, border-radius 0.4s;
+}
+
+.menu .menu-btn:hover {
+  background: transparent;
+  border-color: var(--accent);
+}
+
+.menu .menu-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.menu .menu-btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 85%, white);
+}
+
+.menu .menu-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Zoom into a world ---------- */
+
+.menu > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
+  transition: opacity 0.35s ease, translate 0.35s ease;
+}
+
+.menu[data-phase='zooming'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
+  opacity: 0;
+  translate: 0 12px;
+}
+
+.menu[data-phase='zooming'] .menu-title {
+  translate: 0 -12px;
+}
+
+.menu .zoom-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--veil);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.menu[data-phase='zooming'] .zoom-veil {
+  opacity: 1;
+  transition: opacity var(--veil-duration) ease-in var(--veil-delay);
+}
+
+/* ---------- Themed backdrop (scoped to .backdrop so a game screen can reuse it) ---------- */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.backdrop .backdrop-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.backdrop .backdrop-layer[data-active='true'] {
+  opacity: 1;
+}
+
+.backdrop .backdrop-layer[data-active='false'] * {
+  animation-play-state: paused;
+}
+
+/* Earth: drifting clouds and birds */
+.backdrop .cloud {
+  position: absolute;
+  left: 0;
+  width: 220px;
+  height: 56px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+  filter: blur(2px);
+  scale: var(--scale);
+  animation: menu-drift linear infinite;
+}
+
+.backdrop .cloud::before,
+.backdrop .cloud::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.backdrop .cloud::before {
+  width: 90px;
+  height: 80px;
+  left: 40px;
+  top: -40px;
+}
+
+.backdrop .cloud::after {
+  width: 110px;
+  height: 100px;
+  left: 100px;
+  top: -55px;
+}
+
+.backdrop .bird {
+  position: absolute;
+  left: 0;
+  width: 22px;
+  fill: none;
+  stroke: rgb(235 231 218 / 0.45);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  animation: menu-drift linear infinite;
+}
+
+@keyframes menu-drift {
+  from {
+    translate: -260px 0;
+  }
+  to {
+    translate: calc(100vw + 260px) 0;
+  }
+}
+
+/* Sugar Rose: falling sprinkles and floating lollipops */
+.backdrop .sprinkle {
+  position: absolute;
+  top: 0;
+  width: 5px;
+  height: 16px;
+  border-radius: 4px;
+  opacity: 0.55;
+  animation: menu-fall linear infinite;
+}
+
+@keyframes menu-fall {
+  from {
+    transform: translateY(-5vh) rotate(0deg);
+  }
+  to {
+    transform: translateY(105vh) rotate(540deg);
+  }
+}
+
+.backdrop .lollipop {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: repeating-conic-gradient(#ff79ad 0 30deg, #fff0f6 30deg 60deg);
+  box-shadow: inset 0 0 0 4px rgb(255 255 255 / 0.35);
+  opacity: 0.18;
+  animation: menu-bob 6s ease-in-out infinite;
+}
+
+.backdrop .lollipop::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 3px);
+  width: 6px;
+  height: calc(var(--size) * 1.1);
+  border-radius: 3px;
+  background: #fff0f6;
+}
+
+@keyframes menu-bob {
+  50% {
+    translate: 0 -14px;
+    rotate: 8deg;
+  }
+}
+
+/* Moon: stars, shooting stars and a distant Earth */
+.backdrop .star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  animation: menu-twinkle ease-in-out infinite;
+}
+
+@keyframes menu-twinkle {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.backdrop .shooting-star {
+  position: absolute;
+  top: 12%;
+  left: 70%;
+  width: 140px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #fff, transparent);
+  rotate: -30deg;
+  opacity: 0;
+  animation: menu-shoot 7s ease-in infinite;
+}
+
+.backdrop .shooting-star-late {
+  top: 30%;
+  left: 30%;
+  animation-delay: 3.5s;
+}
+
+@keyframes menu-shoot {
+  0%,
+  85% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: -260px 150px;
+  }
+}
+
+.backdrop .distant-earth {
+  position: absolute;
+  top: 9%;
+  right: 7%;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 40%, #5cc98f 0 18%, transparent 19%),
+    radial-gradient(circle at 65% 65%, #5cc98f 0 14%, transparent 15%),
+    radial-gradient(circle at 30% 30%, #6fb7ff, #1f5a96 70%);
+  box-shadow: 0 0 24px rgb(111 183 255 / 0.4);
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu,
+  .menu > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil),
+  .menu .menu-btn,
+  .backdrop .backdrop-layer {
+    transition: none;
+  }
+
+  .backdrop * {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .menu .terrain {
+    padding: 0 0.75rem;
+  }
+}
+
+/* Phones held sideways: drop the two least needed lines so Play still fits. */
+@media (max-height: 480px) {
+  .menu .world-label,
+  .menu .world-tagline {
+    display: none;
+  }
+
+  .menu .menu-stage {
+    min-height: 120px;
+  }
+}
