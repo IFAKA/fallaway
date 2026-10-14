@@ -78,12 +78,13 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [x] Ambient background per world: the menu's `Backdrop` behind the board with `tone="calm"` (fixed, 45% opacity, 2.5× slower). Its CSS moved to `menu/backdrop.css` and its random helper to `menu/random.ts`, so it loads without the menu chunk or three.js.
 - [x] Flavour labels next to the real terms only, in the world's accent colour (`flavour` in `worlds.ts`): "Your hand · your sweets bag", "gone for good (3) · melted away", and on the idle dig row "Zoom in on the middle card to dig here · unwrap it". Nothing is renamed; the real-deck guide shows no flavour.
 
-## Phase 4: Per-suit region art
+## Phase 4: Per-suit region art ✅ done
 
-- [ ] Region art on face-up map cards, one look per suit per world (e.g. Earth: ♣ forest, ♠ mountains, ♥ meadow, ♦ desert).
-- [ ] Keep the rank + suit corner index on every card; art never covers it.
-- [ ] Explored (sideways) regions still read clearly with art on.
-- [ ] Key-suit cards and the finish card keep a distinct look (they are not regions).
+- [x] Region art on face-up map cards, one look per suit per world, following the Phase 0 terrain table. Small flat SVG landscapes in `src/regionArt.tsx` (no image files, no gradients or ids, so nine copies on the board can't clash), passed the world by `Practice`'s `world` prop. Only face-up map regions show it: cards in the hand, the dig row, the key row and waiting stay plain, and a region that joins your hand fades its art out (0.3 s) as it slides.
+- [x] Keep the rank + suit corner index on every card; art never covers it. The art fills the lower half of the card; the big suit moves to the top right so the suit colour still reads at a glance. Checked in every world (the corner's box ends above the art's).
+- [x] Explored (sideways) regions still read clearly with art on: their landscape turns grey, the index stays full strength.
+- [x] Key-suit cards and the finish card keep a distinct look: plain white, no art.
+- Main chunk +2.3 kB gzipped (136.8 → 139.1 kB). Reduced motion turns off the art's fade and the suit's move.
 
 ## Phase 5: Themed motion
 

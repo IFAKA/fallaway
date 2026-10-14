@@ -86,7 +86,7 @@ export default function App() {
       </div>
       {to.mode === 'guide'
         ? <GuideApp />
-        : <Practice key={world.id} saveKey={GAME_KEYS[world.id]} start={to.start} dealt={arrival === 'direct'} flavour={world.flavour} />}
+        : <Practice key={world.id} saveKey={GAME_KEYS[world.id]} start={to.start} dealt={arrival === 'direct'} flavour={world.flavour} world={world.id} />}
       {leaving
         ? <Veil via={exitOf(to)} motion="cover" style={theme} onDone={() => setScreen(menu(exitOf(to)))} />
         : <Veil via={arrival} motion="clear" style={theme} onDone={() => setScreen(game(to))} />}

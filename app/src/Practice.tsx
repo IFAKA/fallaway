@@ -10,7 +10,8 @@ import type { Advice, State } from '../../core/engine'
 import { inProgress, load } from './save'
 import type { Meta } from './save'
 import type { Start } from './screens'
-import type { Flavour } from './menu/worlds'
+import type { Flavour, WorldId } from './menu/worlds'
+import { RegionArt } from './regionArt'
 import { B, Fit, HowToPlay } from './shared'
 import { WHY, defenders, lbl, suitTxt } from './text'
 
@@ -66,15 +67,17 @@ const keyPos = (k: number, n: number) => ({ x: KEYROW.x + k * (n > 1 ? Math.min(
 interface Placed {
   id: number; x: number; y: number; down: boolean; zone: 'map' | 'dig' | 'hand' | 'other'; dir: number | null
   selected?: boolean; dim?: boolean; turned?: boolean; glow?: boolean; tag?: string; tagCls?: string; onClick?: () => void
+  /** a face-up region on the map (not a key card or the finish card): it shows its world's landscape */
+  region?: boolean
 }
-function StageCard({ p }: { p: Placed }) {
+function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   // a card on its way out (spent, claimed, fallen off) keeps its old props while it animates: it must not be clickable,
   // or a click would replay an action on an old state
   const present = useIsPresent()
   const onClick = present ? p.onClick : undefined
   return (
     <motion.div
-      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.glow && present ? 'glow' : ''} ${onClick ? 'clickable' : ''}`}
+      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.glow && present ? 'glow' : ''} ${onClick ? 'clickable' : ''}`}
       initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : { x: PILE.x, y: PILE.y }), opacity: 0 }}
       animate={{ x: p.x, y: p.y, opacity: 1 }}
       variants={{
@@ -91,7 +94,9 @@ function StageCard({ p }: { p: Placed }) {
     >
       {/* an explored region lies sideways, as on the real table; scaled so two turned neighbours don't overlap */}
       <motion.div className="flip" initial={{ rotateY: 180 }} animate={{ rotateY: p.down ? 180 : 0, rotateZ: p.turned ? 90 : 0, scale: p.turned ? 0.88 : 1 }} transition={{ duration: 0.6, ease: 'easeInOut' }}>
-        <div className={`cf front ${isRed(p.id) ? 'red' : 'black'}`}>
+        {/* the art stays mounted and fades, so a region card that joins your hand loses it smoothly */}
+        <div className={`cf front ${isRed(p.id) ? 'red' : 'black'} ${p.region ? 'region' : ''}`}>
+          <RegionArt world={world} suit={suit(p.id)} />
           <div className="corner">{rankLabel(rank(p.id))}<br />{SUITS[suit(p.id)]}</div>
           <div className="pip">{SUITS[suit(p.id)]}</div>
         </div>
@@ -217,13 +222,15 @@ interface PracticeProps {
   dealt?: boolean
   /** the world's words shown beside the real terms (never instead of them) */
   flavour?: Flavour
+  /** the world whose landscapes the map regions show */
+  world?: WorldId
 }
 
 /** a world's word beside a real term: "gone for good · melted away" */
 const Fl = ({ t }: { t?: string }) => (t ? <i className="flavour"> · {t}</i> : null)
 
 // ---------- app ----------
-export default function Practice({ saveKey, start = 'resume', dealt = true, flavour }: PracticeProps) {
+export default function Practice({ saveKey, start = 'resume', dealt = true, flavour, world = 'earth' }: PracticeProps) {
   const [first] = useState(() => begin(start, saveKey))
   const [history, setHistory] = useState<State[]>(first.history)
   const [meta, setMeta] = useState<Meta>(first.meta)
@@ -304,14 +311,14 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     if (c < 0) return
     const { x, y } = cellPos(i)
     const up = s.gup[i]
-    const region = up && c !== s.vault && !isKeyCard(s, c) && !s.gdone[i]
-    const danger = region ? dangerOf(view, suit(c)) : undefined
+    const region = up && c !== s.vault && !isKeyCard(s, c)
+    const danger = region && !s.gdone[i] ? dangerOf(view, suit(c)) : undefined
     const tag = !up ? undefined
       : c === s.vault ? 'FINISH'
       : isKeyCard(s, c) ? `🔒 any ${rankLabel(rank(c))}${s.hand.some(x => rank(x) === rank(c)) ? ' ✓' : ''}`
       : s.gdone[i] ? '✓' : `dig ${depthOf(c)} · ${danger}`
     placed.push({
-      id: c, x, y, zone: 'map', dir, down: !up, dim: s.gdone[i] > 0 || !!s.dig, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
+      id: c, x, y, zone: 'map', dir, down: !up, region, dim: s.gdone[i] > 0 || !!s.dig, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
       glow: (adv?.kind === 'dig' || adv?.kind === 'finish' || adv?.kind === 'claim') && i === 4,
       tag, onClick: ready && i !== 4 ? () => clickCell(i) : ready && (canDig(s) || canClaim(s) || canFinish(s)) && i === 4 ? () => clickCell(i) : undefined,
     })
@@ -458,7 +465,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             ))}
           </div>
           <AnimatePresence custom={{ dest, dir }}>
-            {dealt && placed.map(p => <StageCard key={p.id} p={p} />)}
+            {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
         </div>
         </Fit>

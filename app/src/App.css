@@ -105,6 +105,16 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .acard.glow .front { outline: 3px solid #ffd36b; box-shadow: 0 0 14px #ffd36b; }
 .acard.dim { opacity: .55 !important; }
 .acard .flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: none; }
+/* region art (regionArt.tsx): the lower part of a face-up map region, below the corner index, which it never covers.
+   The big suit moves up to the top right, so the colour of the suit still reads at a glance. Key cards and the finish
+   card stay plain white, which keeps them apart from regions. */
+.acard .art { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 44px; border-radius: 4px; opacity: 0; transition: opacity .3s, filter .3s; }
+.acard .front.region .art { opacity: 1; }
+.acard .pip { transform-origin: top right; transition: transform .3s; }
+.acard .front.region .pip { transform: translateY(-46px) scale(.75); }
+/* explored (sideways) regions: the landscape fades to grey, the index stays full strength */
+.acard.turned .art { filter: grayscale(.75) brightness(1.05); }
+@media (prefers-reduced-motion: reduce) { .acard .art, .acard .pip { transition: none; } }
 
 /* ---- guide ---- */
 .guide { background: #3a3414; border: 2px solid #c8a21b; border-radius: 10px; padding: 10px 14px; max-width: 720px; box-sizing: border-box; }
