@@ -17,7 +17,8 @@
   --title: #ffd36b;
 }
 
-.game { position: relative; isolation: isolate; min-height: 100vh; background: var(--table); }
+/* clip: while the camera dives into a card (biome.tsx) the board is scaled far past the window, which must not make the page scroll */
+.game { position: relative; isolation: isolate; min-height: 100vh; background: var(--table); overflow: clip; }
 
 /* Sugar Rose: raspberry table, candy-stripe card backs */
 .game[data-world='candy'] {

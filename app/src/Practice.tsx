@@ -12,6 +12,7 @@ import type { Meta } from './save'
 import type { Start } from './screens'
 import type { Flavour, WorldId } from './menu/worlds'
 import { RegionArt } from './regionArt'
+import { BiomeDive } from './biome'
 import { B, Fit, HowToPlay } from './shared'
 import { WHY, defenders, lbl, suitTxt } from './text'
 
@@ -240,6 +241,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const [hint, setHint] = useState(false)
   const [intro, setIntro] = useState(() => { try { return !localStorage.getItem(SEEN) && !urlSeed() } catch { return false } })
   const logRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const [dir, setDir] = useState<number | null>(null)
   const s = history[history.length - 1]
 
@@ -348,6 +350,15 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     { d: 2, ch: '◀', style: { left: 6, top: MAP.h / 2 - 18 } },
     { d: 3, ch: '▶', style: { left: MAP.w - 46, top: MAP.h / 2 - 18 } },
   ]
+  // entering a biome: digging the middle region dives into its card (worlds with biome colours, see biome.tsx)
+  const biome = s.dig ? suit(s.gc[4]) : null
+  /** the middle card on screen, where the camera dives in and rises out; the stage may be scaled down to fit (see Fit) */
+  const middleCard = () => {
+    const r = stageRef.current?.getBoundingClientRect()
+    if (!r) return null
+    const k = r.width / STAGE.w, at = cellPos(4)
+    return { left: r.left + at.x * k, top: r.top + at.y * k, width: CW * k, height: CH * k }
+  }
   const goneSorted = [...s.gone].sort((a, b) => suit(a) - suit(b) || rank(a) - rank(b))
   const red = s.S === 1 || s.S === 2
 
@@ -380,8 +391,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   })
 
   return (
+    <>
+    {intro && <Intro onClose={closeIntro} />}
+    <BiomeDive world={world} suit={biome} card={middleCard}>
     <div className="play">
-      {intro && <Intro onClose={closeIntro} />}
       <div className="boardcol">
         <div className="topbar">
           <span className="lock">Key: <b>{RUN}</b> in a row of <b className={red ? 'redtxt' : ''}>{SUITS[s.S]}</b> · finish <b className={red ? 'redtxt' : ''}>A{SUITS[s.S]}</b></span>
@@ -440,7 +453,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
         )}
 
         <Fit w={STAGE.w} h={STAGE.h}>
-        <div className="stage" style={{ width: STAGE.w, height: STAGE.h }}>
+        <div className="stage" ref={stageRef} style={{ width: STAGE.w, height: STAGE.h }}>
           <div className="zone" style={{ left: 0, top: 0, width: MAP.w, height: MAP.h }} />
           <div className="zone label" style={{ left: 0, top: DIG.y - 6, width: STAGE.w, height: DIG.h }}>
             <span>{s.dig ? `Digging ${label(s.gc[4])}: up to ${s.dig.depth} cards · ${SUITS[suit(s.gc[4])]} cards are hostile` : <>Zoom in on the middle card to dig here<Fl t={flavour?.dig} /></>}</span>
@@ -483,5 +496,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
         <div className="log" ref={logRef}>{s.log.map((l, i) => <div key={i} className={l.startsWith('  ') ? 'sub' : ''}>{l}</div>)}</div>
       </div>
     </div>
+    </BiomeDive>
+    </>
   )
 }

@@ -116,6 +116,23 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .acard.turned .art { filter: grayscale(.75) brightness(1.05); }
 @media (prefers-reduced-motion: reduce) { .acard .art, .acard .pip { transition: none; } }
 
+/* entering a biome while you dig (biome.tsx): the camera dives into the card, the biome's colour washes over the
+   screen, then its landscape fills the window behind the board for the whole dig, toned down by the table colour so
+   the cards, tags and text stay readable */
+.biome { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0; }
+.biome.on { opacity: 1; }
+/* Panorama (regionArt.tsx): the sky fills the window, the sun is sun-sized, and the ground is the card's landscape
+   repeated in a strip along the bottom, at a size where a pine looks like a pine */
+.biome .panorama { position: absolute; inset: 0; }
+/* the sun (or Earth, on the Moon) hangs in the open sky to the right of the board, clear of the buttons and the side panel */
+.panorama-body { position: absolute; right: calc(320px + 8vw); top: 16vh; width: clamp(48px, 9vh, 96px); height: clamp(48px, 9vh, 96px); }
+@media (max-width: 900px) { .panorama-body { right: 8vw; } }
+.panorama-ground { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(150px, 32vh, 300px); display: flex; justify-content: center; overflow: hidden; }
+.panorama-ground svg { height: 100%; width: auto; aspect-ratio: 54 / 46; flex: none; overflow: visible; margin: 0 -0.5px; }
+.biome::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--table) 62%, transparent); }
+.biome-veil { position: fixed; inset: 0; z-index: 45; }
+@media (prefers-reduced-motion: reduce) { .biome { transition: none; } }
+
 /* ---- guide ---- */
 .guide { background: #3a3414; border: 2px solid #c8a21b; border-radius: 10px; padding: 10px 14px; max-width: 720px; box-sizing: border-box; }
 .gtitle { font-weight: 800; font-size: 17px; color: #ffd36b; margin-bottom: 4px; }

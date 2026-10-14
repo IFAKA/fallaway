@@ -85,6 +85,8 @@ Bring this prototype's 3D world menu into the Fallaway app (`../fallaway`) as it
 - [x] Explored (sideways) regions still read clearly with art on: their landscape turns grey, the index stays full strength.
 - [x] Key-suit cards and the finish card keep a distinct look: plain white, no art.
 - Main chunk +2.3 kB gzipped (136.8 → 139.1 kB). Reduced motion turns off the art's fade and the suit's move.
+- [x] **Entering a biome** (added after testing): digging the middle region dives into its card the way Play enters a world from the menu (`BiomeDive` in `src/biome.tsx`, same timings from `menu/transition.ts`): the board grows until the card fills the screen, the biome's colour washes in and clears on the dig, played inside the biome. Ending the dig covers the board and rises back out of the card. A reload mid-dig shows the biome at once; reduced motion skips the dive.
+- [x] The biome behind the board is a `Panorama` (`src/regionArt.tsx`): the world's one sky (every biome of a world shares it: Earth blue with a sun, Sugar Rose pink with a sugar sun, the Moon's stars with Earth in the sky), and the card's ground repeated in a strip along the bottom at a natural size, toned down so the board stays readable. Scenes draw only their ground and meet themselves at both edges, so the strip has no seams. The `.game` root clips, so the zoomed board never makes the page scroll.
 
 ## Phase 5: Themed motion
 
