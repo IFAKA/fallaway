@@ -38,7 +38,7 @@ export function HowToPlay({ onClose, close = 'Got it', children }: { onClose: ()
 }
 
 /** the largest the on-screen board grows on a big window: a little over its own size, still crisp */
-const MAX_SCALE = 1.2
+const MAX_SCALE = 1.5
 
 /**
  * Scale a fixed-size table to fill the space it is given, width and height, so the whole table is on screen without

@@ -169,7 +169,7 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .onscreen .topbar { gap: 10px; row-gap: 6px; }
 .onscreen .lock { padding: 5px 10px; }
 button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
-.fitscreen { flex: 1; min-height: 0; display: flex; gap: 16px; align-items: flex-start; }
+.fitscreen { flex: 1; min-height: 0; display: flex; gap: 20px; align-items: center; justify-content: center; }
 .fitscreen-board { flex: none; }
 .fitscreen-aside { width: 260px; flex: none; }
 .onscreen .actions { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
@@ -181,7 +181,7 @@ button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-heigh
 /* phones: the table fits the width, the actions go under it in a row, the page scrolls to the instructions */
 @media (max-width: 900px) {
   .onscreen { height: auto; }
-  .fitscreen { flex-direction: column; flex: none; }
+  .fitscreen { flex-direction: column; flex: none; align-items: flex-start; justify-content: flex-start; }
   .fitscreen-aside { width: 100%; }
   .onscreen .actions { flex-direction: row; flex-wrap: wrap; }
 }
