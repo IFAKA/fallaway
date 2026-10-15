@@ -138,8 +138,13 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
       {/* remounted on every step, so each move plays its walk once */}
       <motion.div
         key={step}
-        animate={walking ? { x: [0, dx * 0.35, 0], y: [0, dy * 0.35 - 5, dy * 0.2, 0] } : undefined}
-        transition={{ duration: 0.6, ease: 'easeInOut', delay }}
+        // from behind it walks away from you: two steps, a bob on each and the shoulders swaying side to side;
+        // otherwise it strides toward the next region
+        style={back ? { originX: 0.5, originY: 1 } : undefined}
+        animate={!walking ? undefined : back
+          ? { y: [0, -7, 0, -7, 0], rotate: [0, -3, 0, 3, 0], x: [0, -3, 0, 3, 0] }
+          : { x: [0, dx * 0.35, 0], y: [0, dy * 0.35 - 5, dy * 0.2, 0] }}
+        transition={{ duration: back ? 0.8 : 0.6, ease: 'easeInOut', delay }}
       >
         <svg viewBox={`0 0 ${VW} ${VH}`} width={(height * VW) / VH} height={height} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
           {/* from behind it bobs as it walks; swinging arms that close up would look like flapping */}

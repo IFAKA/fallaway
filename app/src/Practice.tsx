@@ -76,15 +76,13 @@ const cellPos = (i: number) => ({ x: MAP0.x + MAP.x + (i % 3) * MAP.px, y: MAP0.
 // Map-zone coordinates (add MAP0 for the stage).
 /** the turned-up card, up ahead on the ground */
 const FOE_CARD = { x: MAP0.x + 34, y: MAP0.y + 90 }
-/** where a turned-up card comes into sight: from the right, along the horizon */
-const FOE_IN = { x: MAP0.x + MAP.w + 10, y: FOE_CARD.y }
 /** the explorer from behind: the whole figure, `h` tall, placed so only its head and shoulders show above the map's edge */
 const HERO = { left: MAP.w - 160, top: MAP.h - 180, h: 270 }
 /** how deep you have dug and the loot so far: a panel, with the loot fanned out under it */
 const LOOT = { x: 12, y: 300, w: 146 }
 const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? Math.min(24, (LOOT.w - CW) / (n - 1)) : 0), y: MAP0.y + LOOT.y })
-/** how far the ground scrolls past on each card you turn up */
-const STRIDE = 72
+/** how far you walk forward into the biome on each card you turn up (the field streams toward you this far) */
+const STRIDE = 75
 /** the board swaps to the biome (and back to the map) at the end of the camera's dive, under the colour wash (biome.tsx) */
 const ARRIVE = reducedMotion ? 0 : DIVE_SECONDS
 const handPos = (k: number, n: number) => ({ x: 18 + k * (n > 1 ? Math.min(76, (STAGE.w - 36 - CW) / (n - 1)) : 76), y: HANDZ.y + 30 })
@@ -110,8 +108,8 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   return (
     <motion.div
       className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${onClick ? 'clickable' : ''}`}
-      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? FOE_IN : { x: PILE.x, y: PILE.y }), opacity: 0 }}
-      animate={{ x: p.x, y: p.y, opacity: p.hidden ? 0 : 1 }}
+      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), opacity: 0 }}
+      animate={{ x: p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: 1 }}
       variants={{
         exit: (c: { dest: (id: number) => { x: number; y: number } | null; dir: number | null }) => {
           // a card that scrolls off the map keeps sliding the way the window moves; spent cards fly to the "gone" pile
@@ -125,7 +123,8 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
       onClick={onClick}
     >
       {/* an explored region lies sideways, as on the real table; scaled so two turned neighbours don't overlap */}
-      <motion.div className="flip" initial={{ rotateY: 180 }} animate={{ rotateY: p.down ? 180 : 0, rotateZ: p.turned ? 90 : 0, scale: p.turned ? 0.88 : 1 }} transition={{ duration: 0.6, ease: 'easeInOut' }}>
+      {/* a card you dig up fades in face up where it stands; every other card turns over as it arrives */}
+      <motion.div className="flip" initial={{ rotateY: p.zone === 'dig' ? 0 : 180 }} animate={{ rotateY: p.down ? 180 : 0, rotateZ: p.turned ? 90 : 0, scale: p.turned ? 0.88 : 1 }} transition={{ duration: 0.6, ease: 'easeInOut' }}>
         {/* the art stays mounted and fades, so a region card that joins your hand loses it smoothly */}
         <div className={`cf front ${isRed(p.id) ? 'red' : 'black'} ${p.region ? 'region' : ''}`}>
           <RegionArt world={world} suit={suit(p.id)} />

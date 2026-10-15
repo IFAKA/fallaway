@@ -180,8 +180,8 @@ const skyFill = ({ colour, stars }: Sky): CSSProperties['background'] => stars
 /**
  * A biome filling a window: its world's sky with its sun (or Earth) at a natural size, and the region's ground
  * repeated in a strip along the bottom, so a forest is a row of pines rather than one pine as tall as the screen.
- * `walked`: how many pixels the ground has scrolled past to the left, as you walk through the biome.
- * `field`: the ground also runs on toward you below the strip, in the biome's nearest ground colour (a close-up view).
+ * `field`: the ground also runs on toward you below the strip, in the biome's nearest ground colour (a close-up view),
+ * laid flat in perspective. `walked`: how far you have walked forward into the biome; the field streams toward you.
  */
 export function Panorama({ world, suit, walked = 0, field = false }: { world: WorldId; suit: number; walked?: number; field?: boolean }) {
   const { sky, scenes } = ART[world]
@@ -190,13 +190,17 @@ export function Panorama({ world, suit, walked = 0, field = false }: { world: Wo
     <div className="panorama" style={{ background: skyFill(sky) }}>
       <svg className="panorama-body" viewBox={`${cx - r} ${cy - r} ${r * 2} ${r * 2}`} aria-hidden="true" focusable="false">{node}</svg>
       <div className="panorama-ground">
-        <div className="panorama-strip" style={walked ? { transform: `translateX(${-walked}px)` } : undefined}>
+        <div className="panorama-strip">
           {Array.from({ length: TILES }, (_, i) => (
             <svg key={i} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">{scenes[suit]}</svg>
           ))}
         </div>
       </div>
-      {field && <div className="panorama-field" style={{ backgroundColor: FIELD[world][suit], backgroundPositionX: -walked }} />}
+      {field && (
+        <div className="panorama-field" style={{ backgroundColor: FIELD[world][suit] }}>
+          <div className="floor" style={{ backgroundPositionY: walked }} />
+        </div>
+      )}
     </div>
   )
 }

@@ -101,12 +101,14 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .stage .mapbiome { position: absolute; inset: 0; }
 .mapbiome .panorama { position: absolute; inset: 0; }
 .mapbiome .panorama-body { right: 22px; top: 12px; width: 40px; height: 40px; }
-/* the landscape is a band along a high horizon, and its ground runs on toward you (Panorama's field), textured with
-   tufts that scroll past as you walk */
+/* the landscape is a band along a high horizon, and its ground runs on toward you (Panorama's field): a floor of tufts
+   tilted back in perspective, small by the horizon and big at your feet, that streams toward you as you walk forward */
 .mapbiome .panorama-ground { top: 50px; bottom: auto; height: 116px; }
-.panorama-field { position: absolute; left: 0; right: 0; top: 164px; bottom: 0;
-  background-image: radial-gradient(ellipse 9px 3px, #0000001f 0 60%, transparent 100%), linear-gradient(#0000 0, #00000030 100%);
-  background-size: 46px 30px, 100% 100%; background-repeat: repeat, no-repeat; transition: background-position .6s ease-in-out; }
+.panorama-field { position: absolute; left: 0; right: 0; top: 164px; bottom: 0; overflow: hidden; perspective: 120px; perspective-origin: 50% -40px;
+  background-image: linear-gradient(#0000 0, #00000030 100%); }
+.panorama-field .floor { position: absolute; left: -150%; right: -150%; top: 0; height: 400%; transform-origin: 50% 0; transform: rotateX(62deg);
+  background-image: radial-gradient(ellipse 9px 3px, #00000024 0 60%, transparent 100%); background-size: 46px 30px;
+  transition: background-position-y .8s ease-in-out; }
 /* the dig seen over the explorer's shoulder (Practice.tsx): how deep you have dug and the loot so far, in one panel */
 .mapbiome .dbar { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 5px 8px 6px; border-radius: 8px; background: color-mix(in srgb, var(--felt) 88%, transparent); border-bottom: 3px solid var(--title); color: #fff; font-size: 12px; line-height: 1.1; box-shadow: 0 2px 6px #0005; }
 .mapbiome .dbar b { color: var(--title); }
@@ -116,8 +118,6 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .mapbiome .pips { display: flex; gap: 4px; }
 .mapbiome .pips i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; background: transparent; box-sizing: border-box; }
 .mapbiome .pips i.on { background: var(--title); border-color: var(--title); }
-/* the ground scrolls past as the explorer walks */
-.mapbiome .panorama-strip { transition: transform .6s ease-in-out; }
 .stage .compass { position: absolute; right: 4px; bottom: 4px; color: var(--chart-ink); }
 /* unexplored regions lie under fog */
 .acard.fog .backside::after { content: ''; position: absolute; inset: 0; border-radius: 5px; background: radial-gradient(ellipse at 30% 35%, #fff5 0, transparent 60%), radial-gradient(ellipse at 70% 75%, #fff4 0, transparent 55%); }
@@ -177,7 +177,7 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .panorama-ground svg { height: 100%; width: auto; aspect-ratio: 54 / 46; flex: none; overflow: visible; margin: 0 -0.5px; }
 .biome::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--table) 62%, transparent); }
 .biome-veil { position: fixed; inset: 0; z-index: 45; }
-@media (prefers-reduced-motion: reduce) { .biome, .mapbiome .panorama-strip, .panorama-field { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .biome, .panorama-field .floor { transition: none; } }
 
 /* ---- guide ---- */
 .guide { background: #3a3414; border: 2px solid #c8a21b; border-radius: 10px; padding: 10px 14px; max-width: 720px; box-sizing: border-box; }
