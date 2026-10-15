@@ -100,15 +100,15 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .stage .compass { position: absolute; right: 4px; bottom: 4px; color: var(--chart-ink); }
 /* unexplored regions lie under fog */
 .acard.fog .backside::after { content: ''; position: absolute; inset: 0; border-radius: 5px; background: radial-gradient(ellipse at 30% 35%, #fff5 0, transparent 60%), radial-gradient(ellipse at 70% 75%, #fff4 0, transparent 55%); }
-/* the map's key: a fogged card back and the explorer */
-.stage .legend { position: absolute; display: flex; gap: 18px; align-items: center; font-size: 12px; opacity: .85; white-space: nowrap; }
-.stage .legend span { display: inline-flex; align-items: center; gap: 6px; }
+/* the map's key, above the coach: a fogged card back and the explorer */
+.mapkey { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: 13px; opacity: .85; margin-bottom: 10px; }
+.mapkey span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .legend-fog { position: relative; display: inline-block; width: 14px; height: 20px; border-radius: 2px; box-sizing: border-box; background: var(--card-back); border: 1px solid var(--card-back-edge); }
 .legend-fog::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 35% 40%, #fff6 0, transparent 70%); }
 /* while you dig, the map's other regions step aside for the dig's cards */
 .acard.hidden { pointer-events: none; }
 /* you are here: the world's explorer on the middle region's corner */
-.stage .explorer { position: absolute; z-index: 4; width: 32px; height: 32px; pointer-events: none; filter: drop-shadow(0 2px 2px #0008); }
+.stage .explorer { position: absolute; z-index: 4; pointer-events: none; filter: drop-shadow(0 2px 2px #0008); }
 .stage .explorer svg { display: block; overflow: visible; }
 .stage .arrow { position: absolute; padding: 4px 12px; font-size: 16px; z-index: 2; }
 .stage .pilecard.back { position: absolute; margin: 0; width: 62px; height: 88px; border-radius: 7px; }

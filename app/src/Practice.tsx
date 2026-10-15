@@ -409,8 +409,12 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <span className={`kchip vault ${whereIs(s, s.vault)}`} title="the finish card">A</span>
         </div>
 
-        {/* beside the board: what to do now, the hint's suggestion, then the usable actions (or the result) */}
+        {/* beside the board: the map's key, what to do now, the hint's suggestion, then the usable actions (or the result) */}
         <FitScreen w={STAGE.w} h={STAGE.h} aside={<>
+          <div className="mapkey">
+            <span><i className="legend-fog" /> fog (unexplored)</span>
+            <span><ExplorerIcon world={world} /> you are here</span>
+          </div>
           <Coach s={s} pending={pending} tipOn={hint} />
           {tip && !s.over && (
             <div className="advice">
@@ -454,13 +458,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
         </>}>
         <div className="stage" ref={stageRef} style={{ width: STAGE.w, height: STAGE.h }}>
           <div className="zcap" style={{ left: SAT.x, width: SAT.w }}>Satchel</div>
-          <div className="zone" style={{ left: SAT.x, top: SAT.y, width: SAT.w, height: MAP.h }} />
-          {/* the map's key, in the satchel's free bottom corner */}
-          <div className="legend" style={{ left: SAT.x + 18, top: SAT.y + MAP.h - 34 }}>
-            <span><i className="legend-fog" /> fog (unexplored)</span>
-            <span><ExplorerIcon world={world} /> you are here</span>
-          </div>
-          <div className="zcap" style={{ left: MAP0.x, width: MAP.w }}>
+          <div className="zone" style={{ left: SAT.x, top: SAT.y, width: SAT.w, height: MAP.h }} />          <div className="zcap" style={{ left: MAP0.x, width: MAP.w }}>
             {s.dig ? <>Digging {label(s.gc[4])} · up to {s.dig.depth} cards · <span className={isRed(s.gc[4]) ? 'redtxt' : ''}>{SUITS[suit(s.gc[4])]}</span> hostile</> : <>Map · dig the middle card<Fl t={flavour?.dig} /></>}
           </div>
           <div className="zone mapzone" style={{ left: MAP0.x, top: MAP0.y, width: MAP.w, height: MAP.h }}>
@@ -489,7 +487,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <AnimatePresence custom={{ dest, dir }}>
             {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
-          {dealt && <Explorer world={world} left={here.x + 44} top={here.y - 14} step={s.gc[4]} digging={!!s.dig} />}
+          {dealt && <Explorer world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} digging={!!s.dig} />}
         </div>
         </FitScreen>
       </div>

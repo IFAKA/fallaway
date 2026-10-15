@@ -2,60 +2,108 @@ import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { WorldId } from './menu/worlds'
 
-// The explorer: "you are here" on the map, one character per world, standing on the middle region's top-right corner
-// (clear of the rank + suit corner and the dig tag). Flavour only. Flat shapes in a 32 × 32 viewBox, like regionArt.tsx.
+// The explorer: "you are here" on the map, one little character per world, standing on the middle region's top-right
+// corner (clear of the rank + suit corner and the dig tag). Flavour only. Flat shapes in a 28 × 44 viewBox, like
+// regionArt.tsx: a head (helmet or hat), a body, and arms and legs that swing when it walks.
 
+const VW = 28, VH = 44
 const SKIN = '#f1c6a0', INK = '#2a2238'
 
-/** Moon: an astronaut in a round helmet with a gold visor */
-const ASTRONAUT = <>
-  <path d="M5 32q0-8 11-8t11 8z" fill="#eef0f8" stroke="#8d93bf" strokeWidth="1" />
-  <rect x="13" y="26" width="6" height="3" rx="1" fill="#e85d5d" />
-  <line x1="23" y1="6" x2="25" y2="1.5" stroke="#8d93bf" strokeWidth="1.2" />
-  <circle cx="25" cy="1.8" r="1.4" fill="#e85d5d" />
-  <circle cx="16" cy="14" r="11" fill="#f6f7fc" stroke="#8d93bf" strokeWidth="1.2" />
-  <rect x="8" y="9" width="16" height="11" rx="5.5" fill="#e3ad45" stroke="#a87a22" strokeWidth="1" />
-  <path d="M11 11.5q2-1.5 5-1.5" stroke="#fff6dc" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-</>
+interface Look {
+  name: string
+  head: ReactNode
+  /** drawn behind the body: a backpack */
+  back?: ReactNode
+  /** drawn over the torso: a scarf, a belt, a badge */
+  front?: ReactNode
+  suit: string; edge: string; arms: string; legs: string; boots: string
+}
 
-/** Earth: a hiker in a wide-brim explorer hat and a red scarf */
-const HIKER = <>
-  <path d="M5 32q0-8 11-8t11 8z" fill="#5c8a3e" stroke="#3f6629" strokeWidth="1" />
-  <path d="M10 25q6 3 12 0l-1 3q-5 2-10 0z" fill="#d6453b" />
-  <circle cx="16" cy="16" r="8" fill={SKIN} />
-  <circle cx="13" cy="16.5" r="1" fill={INK} /><circle cx="19" cy="16.5" r="1" fill={INK} />
-  <path d="M13.5 19.5q2.5 1.6 5 0" stroke={INK} strokeWidth="1" fill="none" strokeLinecap="round" />
-  <path d="M10 11q0-7 6-7t6 7z" fill="#b07a3e" />
-  <rect x="10" y="9.5" width="12" height="2" fill="#6e4520" />
-  <ellipse cx="16" cy="11.5" rx="13" ry="2.6" fill="#8f5f2c" />
-</>
+const LOOKS: Record<WorldId, Look> = {
+  // Moon: an astronaut in a white suit, round helmet with a gold visor, life-support pack
+  moon: {
+    name: 'astronaut',
+    suit: '#eef0f8', edge: '#8d93bf', arms: '#e2e5f2', legs: '#e2e5f2', boots: '#8d93bf',
+    back: <rect x={6} y={17} width={16} height={12} rx={2} fill="#c9cce0" stroke="#8d93bf" strokeWidth={0.8} />,
+    front: <><rect x={11.5} y={20} width={5} height={3} rx={0.8} fill="#e85d5d" /><rect x={11.5} y={24} width={5} height={1.4} rx={0.6} fill="#7fc4ff" /></>,
+    head: <>
+      <line x1={19} y1={4} x2={21} y2={0.8} stroke="#8d93bf" strokeWidth={1} />
+      <circle cx={21} cy={0.9} r={1.1} fill="#e85d5d" />
+      <circle cx={14} cy={10} r={8.5} fill="#f6f7fc" stroke="#8d93bf" strokeWidth={1} />
+      <rect x={8} y={6.5} width={12} height={8} rx={4} fill="#e3ad45" stroke="#a87a22" strokeWidth={0.8} />
+      <path d="M10 8.6q1.6-1.1 4-1.1" stroke="#fff6dc" strokeWidth={1.3} strokeLinecap="round" fill="none" />
+    </>,
+  },
+  // Earth: a hiker in a wide-brim hat, green shirt, red scarf, a pack on the back
+  earth: {
+    name: 'hiker',
+    suit: '#5c8a3e', edge: '#3f6629', arms: '#5c8a3e', legs: '#8a6a44', boots: '#5a3a1e',
+    back: <rect x={6.5} y={17.5} width={15} height={11} rx={3} fill="#a0703c" stroke="#6e4520" strokeWidth={0.8} />,
+    front: <><path d="M9 17.5q5 3 10 0l-.8 2.6q-4.2 1.8-8.4 0z" fill="#d6453b" /><rect x={8} y={27} width={12} height={1.6} fill="#6e4520" /></>,
+    head: <>
+      <circle cx={14} cy={11} r={6.5} fill={SKIN} />
+      <circle cx={12} cy={11.6} r={0.8} fill={INK} /><circle cx={16} cy={11.6} r={0.8} fill={INK} />
+      <path d="M12.4 14q1.6 1.1 3.2 0" stroke={INK} strokeWidth={0.8} fill="none" strokeLinecap="round" />
+      <path d="M9 7q0-6 5-6t5 6z" fill="#b07a3e" />
+      <rect x={9} y={5.4} width={10} height={1.6} fill="#6e4520" />
+      <ellipse cx={14} cy={7} rx={10.5} ry={2.1} fill="#8f5f2c" />
+    </>,
+  },
+  // Sugar Rose: a candy kid in a gumdrop helmet dusted with sugar, mint overalls, pink boots
+  candy: {
+    name: 'candy kid',
+    suit: '#7fd9c0', edge: '#4fae95', arms: SKIN, legs: '#7fd9c0', boots: '#c93a76',
+    front: <><rect x={10} y={19} width={8} height={7} rx={1.5} fill="#5fc4a8" /><circle cx={11.5} cy={19.8} r={0.8} fill="#fff" /><circle cx={16.5} cy={19.8} r={0.8} fill="#fff" /></>,
+    head: <>
+      <circle cx={14} cy={11.5} r={6.5} fill={SKIN} />
+      <circle cx={10.8} cy={13.6} r={1.3} fill="#ff9cbf" /><circle cx={17.2} cy={13.6} r={1.3} fill="#ff9cbf" />
+      <circle cx={12} cy={11.6} r={0.8} fill={INK} /><circle cx={16} cy={11.6} r={0.8} fill={INK} />
+      <path d="M12.6 14.4q1.4 1 2.8 0" stroke={INK} strokeWidth={0.8} fill="none" strokeLinecap="round" />
+      <path d="M6.2 10q0-9.4 7.8-9.4t7.8 9.4q-7.8-2.6-15.6 0z" fill="#ff5f9e" stroke="#c93a76" strokeWidth={0.8} />
+      <circle cx={10} cy={5.2} r={0.7} fill="#fff" /><circle cx={14} cy={3.2} r={0.7} fill="#fff" />
+      <circle cx={17.8} cy={5.6} r={0.7} fill="#fff" /><circle cx={12.4} cy={7.2} r={0.7} fill="#fff" />
+    </>,
+  },
+}
 
-/** Sugar Rose: a candy kid in a gumdrop helmet dusted with sugar */
-const CANDY_KID = <>
-  <path d="M5 32q0-8 11-8t11 8z" fill="#7fd9c0" stroke="#4fae95" strokeWidth="1" />
-  <circle cx="16" cy="17" r="8" fill={SKIN} />
-  <circle cx="12" cy="19.5" r="1.6" fill="#ff9cbf" /><circle cx="20" cy="19.5" r="1.6" fill="#ff9cbf" />
-  <circle cx="13" cy="17" r="1" fill={INK} /><circle cx="19" cy="17" r="1" fill={INK} />
-  <path d="M14 20.5q2 1.4 4 0" stroke={INK} strokeWidth="1" fill="none" strokeLinecap="round" />
-  <path d="M6.5 14q0-11 9.5-11t9.5 11q-9.5-3-19 0z" fill="#ff5f9e" stroke="#c93a76" strokeWidth="1" />
-  <circle cx="11" cy="8" r=".9" fill="#fff" /><circle cx="16" cy="5.5" r=".9" fill="#fff" />
-  <circle cx="20.5" cy="8.5" r=".9" fill="#fff" /><circle cx="14" cy="10.5" r=".9" fill="#fff" />
-</>
+/** a limb that swings from its top end while walking */
+const SWING = { originX: '50%', originY: '0%', transformBox: 'fill-box' } as const
+const STEP = { duration: 0.6, ease: 'easeInOut' } as const
 
-const LOOK: Record<WorldId, ReactNode> = { moon: ASTRONAUT, earth: HIKER, candy: CANDY_KID }
-const NAME: Record<WorldId, string> = { moon: 'astronaut', earth: 'hiker', candy: 'candy kid' }
+function Figure({ world, walking }: { world: WorldId; walking: boolean }) {
+  const L = LOOKS[world]
+  const leg = (a: number) => walking ? { rotate: [0, a, -a, a, 0] } : { rotate: 0 }
+  return <>
+    {L.back}
+    <motion.rect x={9} y={28} width={4.6} height={11} rx={2} fill={L.legs} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(26)} transition={STEP} />
+    <motion.rect x={14.4} y={28} width={4.6} height={11} rx={2} fill={L.legs} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(-26)} transition={STEP} />
+    <rect x={8} y={38} width={6} height={4.5} rx={1.8} fill={L.boots} />
+    <rect x={14} y={38} width={6} height={4.5} rx={1.8} fill={L.boots} />
+    <motion.rect x={4.2} y={18} width={4.2} height={10.5} rx={2} fill={L.arms} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(-22)} transition={STEP} />
+    <motion.rect x={19.6} y={18} width={4.2} height={10.5} rx={2} fill={L.arms} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(22)} transition={STEP} />
+    <rect x={8} y={16.5} width={12} height={13} rx={3.5} fill={L.suit} stroke={L.edge} strokeWidth={0.8} />
+    {L.front}
+    {L.head}
+  </>
+}
 
-/** the explorer standing still, at any size: the map legend's "you are here" */
-export function ExplorerIcon({ world, size = 20 }: { world: WorldId; size?: number }) {
-  return <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden="true">{LOOK[world]}</svg>
+/** the explorer standing still, `size` tall: the map legend's "you are here" */
+export function ExplorerIcon({ world, size = 22 }: { world: WorldId; size?: number }) {
+  return <svg viewBox={`0 0 ${VW} ${VH}`} width={(size * VW) / VH} height={size} aria-hidden="true"><Figure world={world} walking={false} /></svg>
 }
 
 /**
- * The explorer at `left`, `top` (stage coordinates). It hops each time the map moves under it (`step` changes), and
- * climbs down into the region while you dig there (it comes back out when the dig ends).
+ * The explorer at `left`, `top` (stage coordinates), 26 × 41. When the map moves (`step` changes) and `toward` gives the
+ * way it went (x, y to the next region), the explorer faces that way and walks: legs and arms swing, it strides part
+ * of the way toward the next region while the map slides under it, and settles back on the new middle region.
+ * While you dig there it climbs down into the region, and comes back out when the dig ends.
  */
-export function Explorer({ world, left, top, step, digging }: { world: WorldId; left: number; top: number; step: number; digging: boolean }) {
+export function Explorer({ world, left, top, step, toward, digging }: {
+  world: WorldId; left: number; top: number; step: number; toward: readonly number[] | null; digging: boolean
+}) {
   const reduce = useReducedMotion()
+  const walking = !!toward && !reduce
+  const [dx, dy] = toward ?? [0, 0]
   return (
     <motion.div
       className="explorer"
@@ -64,11 +112,18 @@ export function Explorer({ world, left, top, step, digging }: { world: WorldId; 
       animate={digging ? (reduce ? { opacity: 0 } : { opacity: 0, y: 26, scale: 0.4 }) : { opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: reduce ? 0.2 : 0.35, ease: 'easeOut' }}
       role="img"
-      aria-label={`You are here (the ${NAME[world]})`}
+      aria-label={`You are here (the ${LOOKS[world].name})`}
     >
-      <motion.svg key={step} viewBox="0 0 32 32" width="32" height="32" animate={reduce ? undefined : { y: [0, -6, 0] }} transition={{ duration: 0.45, ease: 'easeOut' }}>
-        {LOOK[world]}
-      </motion.svg>
+      {/* remounted on every step, so each move plays its walk once */}
+      <motion.div
+        key={step}
+        animate={walking ? { x: [0, dx * 0.35, 0], y: [0, dy * 0.35 - 5, dy * 0.2, 0] } : undefined}
+        transition={{ duration: 0.6, ease: 'easeInOut' }}
+      >
+        <svg viewBox={`0 0 ${VW} ${VH}`} width={26} height={41} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
+          <Figure world={world} walking={walking} />
+        </svg>
+      </motion.div>
     </motion.div>
   )
 }
