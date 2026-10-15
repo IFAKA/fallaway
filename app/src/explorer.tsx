@@ -155,7 +155,7 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
   const [dx, dy] = toward ?? [0, 0]
   return (
     <motion.div
-      className="explorer"
+      className={`explorer ${leave ? 'leaving' : ''}`}
       style={{ left, top }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, x: leave ? -height * 1.3 : 0 }}

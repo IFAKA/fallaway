@@ -373,6 +373,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   )
   const handClickable = !s.over && (over > 0 || !!pickSet || !!pending)
   const placed: Placed[] = []
+  /** this state just entered a biome: the board swaps to it at the end of the camera's dive (only then do cards wait) */
+  const arriving = !!s.dig && !history[history.length - 2]?.dig
   const view = viewOf(s)
   s.gc.forEach((c, i) => {
     if (c < 0) return
@@ -385,14 +387,14 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
       : isKeyCard(s, c) ? `🔒 any ${rankLabel(rank(c))}${s.hand.some(x => rank(x) === rank(c)) ? ' ✓' : ''}`
       : s.gdone[i] ? '✓' : `dig ${depthOf(c)} · ${danger}`
     placed.push({
-      id: c, x, y, zone: 'map', dir, down: !up, region, fog: !up, hidden: !!s.dig, dim: s.gdone[i] > 0 && !s.dig, delay: ARRIVE, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
+      id: c, x, y, zone: 'map', dir, down: !up, region, fog: !up, hidden: !!s.dig, dim: s.gdone[i] > 0 && !s.dig, delay: arriving ? ARRIVE : 0, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
       glow: (adv?.kind === 'dig' || adv?.kind === 'finish' || adv?.kind === 'claim') && i === 4,
       tag, onClick: ready && i !== 4 ? () => clickCell(i) : ready && (canDig(s) || canClaim(s) || canFinish(s)) && i === 4 ? () => clickCell(i) : undefined,
     })
   })
   if (s.dig) {
-    // the first card turns up as you arrive in the biome (the dig began with this state)
-    const delay = !history[history.length - 2]?.dig ? ARRIVE : 0, d = s.dig
+    // the first card turns up as you arrive in the biome
+    const delay = arriving ? ARRIVE : 0, d = s.dig
     // across from the explorer: the hostile card or key card waiting for you, else the loot you just turned up
     // (a hostile card you beat joins the loot at once: it is the region's suit, which loot never is)
     const last = d.loot[d.loot.length - 1]
