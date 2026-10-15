@@ -12,6 +12,8 @@ const SKIN = '#f1c6a0', INK = '#2a2238'
 interface Look {
   name: string
   head: ReactNode
+  /** the head seen from behind (no face) */
+  headBack: ReactNode
   /** drawn behind the body: a backpack */
   back?: ReactNode
   /** drawn over the torso: a scarf, a belt, a badge */
@@ -33,6 +35,12 @@ const LOOKS: Record<WorldId, Look> = {
       <rect x={8} y={6.5} width={12} height={8} rx={4} fill="#e3ad45" stroke="#a87a22" strokeWidth={0.8} />
       <path d="M10 8.6q1.6-1.1 4-1.1" stroke="#fff6dc" strokeWidth={1.3} strokeLinecap="round" fill="none" />
     </>,
+    headBack: <>
+      <line x1={9} y1={4} x2={7} y2={0.8} stroke="#8d93bf" strokeWidth={1} />
+      <circle cx={7} cy={0.9} r={1.1} fill="#e85d5d" />
+      <circle cx={14} cy={10} r={8.5} fill="#f6f7fc" stroke="#8d93bf" strokeWidth={1} />
+      <path d="M6 12.5q8 3 16 0" stroke="#c9cce0" strokeWidth={1.4} fill="none" />
+    </>,
   },
   // Earth: a hiker in a wide-brim hat, green shirt, red scarf, a pack on the back
   earth: {
@@ -44,6 +52,12 @@ const LOOKS: Record<WorldId, Look> = {
       <circle cx={14} cy={11} r={6.5} fill={SKIN} />
       <circle cx={12} cy={11.6} r={0.8} fill={INK} /><circle cx={16} cy={11.6} r={0.8} fill={INK} />
       <path d="M12.4 14q1.6 1.1 3.2 0" stroke={INK} strokeWidth={0.8} fill="none" strokeLinecap="round" />
+      <path d="M9 7q0-6 5-6t5 6z" fill="#b07a3e" />
+      <rect x={9} y={5.4} width={10} height={1.6} fill="#6e4520" />
+      <ellipse cx={14} cy={7} rx={10.5} ry={2.1} fill="#8f5f2c" />
+    </>,
+    headBack: <>
+      <circle cx={14} cy={11} r={6.5} fill="#6b4423" />
       <path d="M9 7q0-6 5-6t5 6z" fill="#b07a3e" />
       <rect x={9} y={5.4} width={10} height={1.6} fill="#6e4520" />
       <ellipse cx={14} cy={7} rx={10.5} ry={2.1} fill="#8f5f2c" />
@@ -63,6 +77,12 @@ const LOOKS: Record<WorldId, Look> = {
       <circle cx={10} cy={5.2} r={0.7} fill="#fff" /><circle cx={14} cy={3.2} r={0.7} fill="#fff" />
       <circle cx={17.8} cy={5.6} r={0.7} fill="#fff" /><circle cx={12.4} cy={7.2} r={0.7} fill="#fff" />
     </>,
+    headBack: <>
+      <circle cx={14} cy={11.5} r={6.5} fill="#8a4a2e" />
+      <path d="M6.2 12q0-11.4 7.8-11.4t7.8 11.4q-7.8-2.6-15.6 0z" fill="#ff5f9e" stroke="#c93a76" strokeWidth={0.8} />
+      <circle cx={10} cy={5.2} r={0.7} fill="#fff" /><circle cx={14} cy={3.2} r={0.7} fill="#fff" />
+      <circle cx={17.8} cy={5.6} r={0.7} fill="#fff" /><circle cx={12.4} cy={8.2} r={0.7} fill="#fff" />
+    </>,
   },
 }
 
@@ -70,11 +90,12 @@ const LOOKS: Record<WorldId, Look> = {
 const SWING = { originX: '50%', originY: '0%', transformBox: 'fill-box' } as const
 const STEP = { duration: 0.6, ease: 'easeInOut' } as const
 
-function Figure({ world, walking }: { world: WorldId; walking: boolean }) {
+/** the explorer, from the front, or from `behind` (its pack on its back, no face) */
+function Figure({ world, walking, behind = false }: { world: WorldId; walking: boolean; behind?: boolean }) {
   const L = LOOKS[world]
   const leg = (a: number) => walking ? { rotate: [0, a, -a, a, 0] } : { rotate: 0 }
   return <>
-    {L.back}
+    {!behind && L.back}
     <motion.rect x={9} y={28} width={4.6} height={11} rx={2} fill={L.legs} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(26)} transition={STEP} />
     <motion.rect x={14.4} y={28} width={4.6} height={11} rx={2} fill={L.legs} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(-26)} transition={STEP} />
     <rect x={8} y={38} width={6} height={4.5} rx={1.8} fill={L.boots} />
@@ -82,8 +103,8 @@ function Figure({ world, walking }: { world: WorldId; walking: boolean }) {
     <motion.rect x={4.2} y={18} width={4.2} height={10.5} rx={2} fill={L.arms} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(-22)} transition={STEP} />
     <motion.rect x={19.6} y={18} width={4.2} height={10.5} rx={2} fill={L.arms} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(22)} transition={STEP} />
     <rect x={8} y={16.5} width={12} height={13} rx={3.5} fill={L.suit} stroke={L.edge} strokeWidth={0.8} />
-    {L.front}
-    {L.head}
+    {behind ? L.back : L.front}
+    {behind ? L.headBack : L.head}
   </>
 }
 
@@ -93,13 +114,13 @@ export function ExplorerIcon({ world, size = 22 }: { world: WorldId; size?: numb
 }
 
 /**
- * The explorer at `left`, `top` (stage coordinates), 26 × 41. When the map moves (`step` changes) and `toward` gives the
- * way it went (x, y to the next region), the explorer faces that way and walks: legs and arms swing, it strides part
- * of the way toward the next region while the map slides under it, and settles back on the new middle region.
- * While you dig there it climbs down into the region, and comes back out when the dig ends.
+ * The explorer at `left`, `top` (stage coordinates), `height` tall (seen from behind when `back`), fading in after `delay` seconds. When `step` changes and
+ * `toward` gives the way it went (x, y), the explorer faces that way and walks: legs and arms swing and it strides part
+ * of the way there. On the map that is toward the next region while the map slides under it; inside a biome (see
+ * Practice) it walks along the trail while the ground scrolls past.
  */
-export function Explorer({ world, left, top, step, toward, digging }: {
-  world: WorldId; left: number; top: number; step: number; toward: readonly number[] | null; digging: boolean
+export function Explorer({ world, left, top, step, toward, delay, height = 41, back = false }: {
+  world: WorldId; left: number; top: number; step: number | string; toward: readonly number[] | null; delay: number; height?: number; back?: boolean
 }) {
   const reduce = useReducedMotion()
   const walking = !!toward && !reduce
@@ -108,9 +129,9 @@ export function Explorer({ world, left, top, step, toward, digging }: {
     <motion.div
       className="explorer"
       style={{ left, top }}
-      initial={false}
-      animate={digging ? (reduce ? { opacity: 0 } : { opacity: 0, y: 26, scale: 0.4 }) : { opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: reduce ? 0.2 : 0.35, ease: 'easeOut' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: 'easeOut', delay }}
       role="img"
       aria-label={`You are here (the ${LOOKS[world].name})`}
     >
@@ -118,10 +139,10 @@ export function Explorer({ world, left, top, step, toward, digging }: {
       <motion.div
         key={step}
         animate={walking ? { x: [0, dx * 0.35, 0], y: [0, dy * 0.35 - 5, dy * 0.2, 0] } : undefined}
-        transition={{ duration: 0.6, ease: 'easeInOut' }}
+        transition={{ duration: 0.6, ease: 'easeInOut', delay }}
       >
-        <svg viewBox={`0 0 ${VW} ${VH}`} width={26} height={41} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
-          <Figure world={world} walking={walking} />
+        <svg viewBox={`0 0 ${VW} ${VH}`} width={(height * VW) / VH} height={height} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
+          <Figure world={world} walking={walking} behind={back} />
         </svg>
       </motion.div>
     </motion.div>

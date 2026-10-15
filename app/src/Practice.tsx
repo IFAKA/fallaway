@@ -11,8 +11,10 @@ import { inProgress, load } from './save'
 import type { Meta } from './save'
 import type { Start } from './screens'
 import type { Flavour, WorldId } from './menu/worlds'
-import { RegionArt } from './regionArt'
+import { Panorama, RegionArt } from './regionArt'
 import { BiomeDive } from './biome'
+import { reducedMotion } from './menu/reducedMotion'
+import { DIVE_SECONDS } from './menu/transition'
 import { Explorer, ExplorerIcon } from './explorer'
 import { PlanetMap } from './planetMap'
 import { B, FitScreen, HowToPlay } from './shared'
@@ -67,9 +69,25 @@ const STAGE = { w: MAP0.x + MAP.w + 2, h: HANDZ.y + HANDZ.h + 6 }
 // where a new row/column enters from for each move direction (up, down, left, right)
 const SLIDE = [[0, -MAP.py], [0, MAP.py], [-MAP.px, 0], [MAP.px, 0]]
 const cellPos = (i: number) => ({ x: MAP0.x + MAP.x + (i % 3) * MAP.px, y: MAP0.y + MAP.y + Math.floor(i / 3) * MAP.py })
-/** while you dig, the region stays in the middle and what you turn up lies around it, top row first */
-const RING = [0, 1, 2, 3, 5, 6, 7, 8]
-const digPos = (j: number) => cellPos(RING[j % RING.length])
+// While you dig you are inside the region, as in a battle screen: the biome fills the map, the explorer stands on a
+// platform in front, seen from behind and as tall as a card, and the card you just turned up (a hostile card, a key
+// card, or loot) stands on a platform across from it. A bar above each side: how deep you have dug, and the loot so far.
+// Map-zone coordinates (add MAP0 for the stage).
+/** the turned-up card's platform (its centre) and the card standing on it */
+const FOE = { cx: 236, cy: 226 }
+const FOE_CARD = { x: MAP0.x + FOE.cx - CW / 2, y: MAP0.y + FOE.cy - CH + 6 }
+/** where a turned-up card comes into sight: from the right, beside its platform */
+const FOE_IN = { x: MAP0.x + MAP.w + 10, y: FOE_CARD.y }
+/** the explorer's platform (its centre) and the explorer standing on it */
+const HERO = { cx: 92, cy: 384, h: 96 }
+const HERO_AT = { left: MAP0.x + HERO.cx - 32, top: MAP0.y + HERO.cy - HERO.h + 6 }
+/** the loot so far: a fan of cards beside the explorer, under its bar */
+const LOOT = { x: 168, y: 290 }
+const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? Math.min(24, (MAP.w - 10 - LOOT.x - CW) / (n - 1)) : 0), y: MAP0.y + LOOT.y })
+/** how far the ground scrolls past on each card you turn up */
+const STRIDE = 72
+/** the board swaps to the biome (and back to the map) at the end of the camera's dive, under the colour wash (biome.tsx) */
+const ARRIVE = reducedMotion ? 0 : DIVE_SECONDS
 const handPos = (k: number, n: number) => ({ x: 18 + k * (n > 1 ? Math.min(76, (STAGE.w - 36 - CW) / (n - 1)) : 76), y: HANDZ.y + 30 })
 const keyPos = (k: number, n: number) => ({ x: KEYROW.x + k * (n > 1 ? Math.min(68, (KEYROW.w - CW) / (n - 1)) : 68), y: KEYROW.y })
 
@@ -80,8 +98,10 @@ interface Placed {
   region?: boolean
   /** a face-down region on the map: unexplored, under fog */
   fog?: boolean
-  /** a map region hidden while you dig (the dig's cards lie in its place) */
+  /** a map region hidden while you dig (you are inside the biome) */
   hidden?: boolean
+  /** seconds before the card comes into sight or fades out */
+  delay?: number
 }
 function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   // a card on its way out (spent, claimed, fallen off) keeps its old props while it animates: it must not be clickable,
@@ -91,7 +111,7 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   return (
     <motion.div
       className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${onClick ? 'clickable' : ''}`}
-      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : { x: PILE.x, y: PILE.y }), opacity: 0 }}
+      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? FOE_IN : { x: PILE.x, y: PILE.y }), opacity: 0 }}
       animate={{ x: p.x, y: p.y, opacity: p.hidden ? 0 : 1 }}
       variants={{
         exit: (c: { dest: (id: number) => { x: number; y: number } | null; dir: number | null }) => {
@@ -102,7 +122,7 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
         },
       }}
       exit="exit"
-      transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1], delay: p.delay }}
       onClick={onClick}
     >
       {/* an explored region lies sideways, as on the real table; scaled so two turned neighbours don't overlap */}
@@ -312,16 +332,23 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
       : isKeyCard(s, c) ? `🔒 any ${rankLabel(rank(c))}${s.hand.some(x => rank(x) === rank(c)) ? ' ✓' : ''}`
       : s.gdone[i] ? '✓' : `dig ${depthOf(c)} · ${danger}`
     placed.push({
-      id: c, x, y, zone: 'map', dir, down: !up, region, fog: !up, hidden: !!s.dig && i !== 4, dim: (s.gdone[i] > 0 || !!s.dig) && !(s.dig && i !== 4), turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
+      id: c, x, y, zone: 'map', dir, down: !up, region, fog: !up, hidden: !!s.dig, dim: s.gdone[i] > 0 && !s.dig, delay: ARRIVE, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
       glow: (adv?.kind === 'dig' || adv?.kind === 'finish' || adv?.kind === 'claim') && i === 4,
       tag, onClick: ready && i !== 4 ? () => clickCell(i) : ready && (canDig(s) || canClaim(s) || canFinish(s)) && i === 4 ? () => clickCell(i) : undefined,
     })
   })
-  const digCards = s.dig ? [...s.dig.loot, ...(s.dig.hostile >= 0 ? [s.dig.hostile] : []), ...(s.dig.found >= 0 ? [s.dig.found] : [])] : []
-  digCards.forEach((c, j) => placed.push({
-    id: c, ...digPos(j), zone: 'dig', dir, down: false, glow: c === s.dig!.hostile || c === s.dig!.found,
-    tag: c === s.dig!.hostile ? 'HOSTILE' : c === s.dig!.found ? 'KEY' : 'loot',
-  }))
+  if (s.dig) {
+    // the first card turns up as you arrive in the biome
+    const delay = s.dig.flips <= 1 ? ARRIVE : 0, d = s.dig
+    // across from the explorer: the hostile card or key card waiting for you, else the loot you just turned up
+    const foes = d.hostile >= 0 || d.found >= 0 ? [d.hostile, d.found].filter(c => c >= 0) : d.loot.slice(-1)
+    const loot = d.loot.filter(c => !foes.includes(c))
+    loot.forEach((c, j) => placed.push({ id: c, ...lootPos(j, loot.length), zone: 'dig', dir, down: false, delay }))
+    foes.forEach((c, j) => placed.push({
+      id: c, x: FOE_CARD.x - j * (CW + 8), y: FOE_CARD.y, zone: 'dig', dir, down: false, glow: c === d.hostile || c === d.found, delay,
+      tag: c === d.hostile ? 'HOSTILE' : c === d.found ? 'KEY' : 'loot',
+    }))
+  }
   ;[...s.keys].sort((a, b) => rank(a) - rank(b)).forEach((c, k) => placed.push({ id: c, ...keyPos(k, s.keys.length), zone: 'other', dir, down: false }))
   s.wait.forEach((c, k) => placed.push({ id: c, x: WAIT.x + k * 14, y: WAIT.y + k * 6, zone: 'other', dir, down: false, tag: k === s.wait.length - 1 ? 'waiting' : undefined }))
   handSorted.forEach(({ c, i }, k) => {
@@ -463,13 +490,32 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           </div>
           <div className="zone mapzone" style={{ left: MAP0.x, top: MAP0.y, width: MAP.w, height: MAP.h }}>
             <PlanetMap world={world} />
-            <Compass />
+            {/* while you dig, the map turns into the region's biome: its sky and its ground, framed by the map */}
+            <AnimatePresence>
+              {biome !== null && (
+                <motion.div key={biome} className="mapbiome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.2, delay: ARRIVE } }} exit={{ opacity: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }}>
+                  <Panorama world={world} suit={biome} walked={s.dig ? s.dig.flips * STRIDE : 0} />
+                  {s.dig && <>
+                    <div className="platform" style={{ left: FOE.cx - 75, top: FOE.cy - 16, width: 150, height: 32 }} />
+                    <div className="platform" style={{ left: HERO.cx - 85, top: HERO.cy - 20, width: 170, height: 40 }} />
+                    <div className="dbar" style={{ left: 12, top: 16, width: 176 }}>
+                      <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} <small>(key cards don't count)</small></span>
+                      <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
+                    </div>
+                    <div className="dbar" style={{ left: LOOT.x - 4, top: LOOT.y - 34, width: MAP.w - LOOT.x - 6 }}>
+                      <span>Loot <b>{s.dig.loot.length}</b></span>
+                    </div>
+                  </>}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {!s.dig && <Compass />}
           </div>
           <div className="zone label" style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h }}>
             <span>Your hand<Fl t={flavour?.hand} /> ({s.hand.length}/{s.limit}): food, weapons, and ranks that open key cards</span>
           </div>
-          <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6 }} />
-          {arrows.map(a => (
+          {!s.dig && <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6 }} />}
+          {!s.dig && arrows.map(a => (
             <button key={a.d} className={`arrow ${adv?.kind === 'move' && adv.d === a.d ? 'glow' : ''} ${pending?.kind === 'move' && pending.d === a.d ? 'on' : ''}`} style={a.style} disabled={!ready || !canMove(s)} onClick={() => setPending({ kind: 'move', d: a.d })} aria-label={`Move ${a.name}`} title={`Move ${a.name} (eat 1 card)`}>{a.ch}</button>
           ))}
           <div className="pilecard back" style={{ left: PILE.x, top: PILE.y }}>{s.pile.length}</div>
@@ -487,7 +533,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <AnimatePresence custom={{ dest, dir }}>
             {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
-          {dealt && <Explorer world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} digging={!!s.dig} />}
+          {dealt && (s.dig
+            // inside the biome: seen from behind, walking on for every card you turn up while the ground scrolls past
+            ? <Explorer key="trail" world={world} {...HERO_AT} height={HERO.h} back step={`dig ${s.dig.flips}`} toward={[0, 0]} delay={ARRIVE} />
+            : <Explorer key="map" world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={0} />)}
         </div>
         </FitScreen>
       </div>

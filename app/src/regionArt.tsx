@@ -173,17 +173,20 @@ const skyFill = ({ colour, stars }: Sky): CSSProperties['background'] => stars
 /**
  * A biome filling a window: its world's sky with its sun (or Earth) at a natural size, and the region's ground
  * repeated in a strip along the bottom, so a forest is a row of pines rather than one pine as tall as the screen.
+ * `walked`: how many pixels the ground has scrolled past to the left, as you walk through the biome.
  */
-export function Panorama({ world, suit }: { world: WorldId; suit: number }) {
+export function Panorama({ world, suit, walked = 0 }: { world: WorldId; suit: number; walked?: number }) {
   const { sky, scenes } = ART[world]
   const { cx, cy, r, node } = sky.body
   return (
     <div className="panorama" style={{ background: skyFill(sky) }}>
       <svg className="panorama-body" viewBox={`${cx - r} ${cy - r} ${r * 2} ${r * 2}`} aria-hidden="true" focusable="false">{node}</svg>
       <div className="panorama-ground">
-        {Array.from({ length: TILES }, (_, i) => (
-          <svg key={i} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">{scenes[suit]}</svg>
-        ))}
+        <div className="panorama-strip" style={walked ? { transform: `translateX(${-walked}px)` } : undefined}>
+          {Array.from({ length: TILES }, (_, i) => (
+            <svg key={i} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">{scenes[suit]}</svg>
+          ))}
+        </div>
       </div>
     </div>
   )
