@@ -75,7 +75,7 @@ const cellPos = (i: number) => ({ x: MAP0.x + MAP.x + (i % 3) * MAP.px, y: MAP0.
 // stands on the ground ahead, up by the horizon. How deep you have dug and the loot so far sit in the bottom-left corner.
 // Map-zone coordinates (add MAP0 for the stage).
 /** the turned-up card, up ahead on the ground */
-const FOE_CARD = { x: MAP0.x + 34, y: MAP0.y + 78 }
+const FOE_CARD = { x: MAP0.x + 34, y: MAP0.y + 90 }
 /** where a turned-up card comes into sight: from the right, along the horizon */
 const FOE_IN = { x: MAP0.x + MAP.w + 10, y: FOE_CARD.y }
 /** the explorer from behind: the whole figure, `h` tall, placed so only its head and shoulders show above the map's edge */
@@ -356,7 +356,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     placed.push({
       id: c, ...handPos(k, handSorted.length), zone: 'hand', dir, down: false,
       selected: false, glow: hlHand.has(i) || (!!pickSet && pickSet.has(i) && !hint), dim: !!pickSet && !pickSet.has(i),
-      tag: guard ? 'defends' : opens ? '🔑' : undefined,
+      tag: guard ? `defends ${SUITS[suit(c)]}` : opens ? '🔑' : undefined, tagCls: guard ? 't-guard' : undefined,
       onClick: handClickable && (!pickSet || pickSet.has(i)) ? () => clickHand(i) : undefined,
     })
   })
@@ -437,10 +437,19 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
 
         {/* beside the board: the map's key, what to do now, the hint's suggestion, then the usable actions (or the result) */}
         <FitScreen w={STAGE.w} h={STAGE.h} aside={<>
-          <div className="mapkey">
-            <span><i className="legend-fog" /> fog (unexplored)</span>
-            <span><ExplorerIcon world={world} /> you are here</span>
-          </div>
+          {s.dig ? (
+            // inside a biome the map's key has nothing to point at; this biome's rule takes its place
+            <div className="digrule">
+              <div className="digrule-title">Biome suit</div>
+              <div className={`big-suit ${isRed(s.gc[4]) ? 'redtxt' : ''}`}>{SUITS[suit(s.gc[4])]}</div>
+              <div className="digrule-line">hostile here · defend with a higher {suitTxt(suit(s.gc[4]))}</div>
+            </div>
+          ) : (
+            <div className="mapkey">
+              <span><i className="legend-fog" /> fog (unexplored)</span>
+              <span><ExplorerIcon world={world} /> you are here</span>
+            </div>
+          )}
           <Coach s={s} pending={pending} tipOn={hint} />
           {tip && !s.over && (
             <div className="advice">
@@ -495,6 +504,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                 <motion.div key={biome} className="mapbiome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.2, delay: ARRIVE } }} exit={{ opacity: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }}>
                   <Panorama world={world} suit={biome} walked={s.dig ? s.dig.flips * STRIDE : 0} field />
                   {s.dig && <>
+                    {/* the one rule of this biome, where you look first: which suit attacks (how to beat it is beside the board) */}
+                    <div className={`hostile-sign ${isRed(s.gc[4]) ? 'red' : ''}`} style={{ left: 10, top: 8 }} aria-hidden="true">
+                      <span className="big-suit">{SUITS[biome]}</span> hostile
+                    </div>
                     <div className="dbar" style={{ left: LOOT.x - 4, top: LOOT.y - 50, width: LOOT.w + 8 }} title="Key cards you turn up don't count toward the dig.">
                       <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} · Loot <b>{s.dig.loot.length}</b></span>
                       <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
