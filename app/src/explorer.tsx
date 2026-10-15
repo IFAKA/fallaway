@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { WorldId } from './menu/worlds'
+import { FLAP } from './menu/transition'
 
 // The explorer: "you are here" on the map, one little character per world, standing on the middle region's top-right
 // corner (clear of the rank + suit corner and the dig tag). Flavour only. Flat shapes in a 28 × 44 viewBox, like
@@ -14,8 +15,8 @@ interface Look {
   head: ReactNode
   /** the head seen from behind (no face) */
   headBack: ReactNode
-  /** drawn behind the body: a backpack */
-  back?: ReactNode
+  /** its backpack's colours: the bag, its flap, the front pocket, the outline */
+  pack: { bag: string; flap: string; pocket: string; edge: string }
   /** drawn over the torso: a scarf, a belt, a badge */
   front?: ReactNode
   suit: string; edge: string; arms: string; legs: string; boots: string
@@ -26,7 +27,7 @@ const LOOKS: Record<WorldId, Look> = {
   moon: {
     name: 'astronaut',
     suit: '#eef0f8', edge: '#8d93bf', arms: '#e2e5f2', legs: '#e2e5f2', boots: '#8d93bf',
-    back: <rect x={6} y={17} width={16} height={12} rx={2} fill="#c9cce0" stroke="#8d93bf" strokeWidth={0.8} />,
+    pack: { bag: '#c9cce0', flap: '#a9aecb', pocket: '#e85d5d', edge: '#8d93bf' },
     front: <><rect x={11.5} y={20} width={5} height={3} rx={0.8} fill="#e85d5d" /><rect x={11.5} y={24} width={5} height={1.4} rx={0.6} fill="#7fc4ff" /></>,
     head: <>
       <line x1={19} y1={4} x2={21} y2={0.8} stroke="#8d93bf" strokeWidth={1} />
@@ -46,7 +47,7 @@ const LOOKS: Record<WorldId, Look> = {
   earth: {
     name: 'hiker',
     suit: '#5c8a3e', edge: '#3f6629', arms: '#5c8a3e', legs: '#8a6a44', boots: '#5a3a1e',
-    back: <rect x={6.5} y={17.5} width={15} height={11} rx={3} fill="#a0703c" stroke="#6e4520" strokeWidth={0.8} />,
+    pack: { bag: '#a0703c', flap: '#7a4f24', pocket: '#8a5e30', edge: '#6e4520' },
     front: <><path d="M9 17.5q5 3 10 0l-.8 2.6q-4.2 1.8-8.4 0z" fill="#d6453b" /><rect x={8} y={27} width={12} height={1.6} fill="#6e4520" /></>,
     head: <>
       <circle cx={14} cy={11} r={6.5} fill={SKIN} />
@@ -67,6 +68,7 @@ const LOOKS: Record<WorldId, Look> = {
   candy: {
     name: 'candy kid',
     suit: '#7fd9c0', edge: '#4fae95', arms: SKIN, legs: '#7fd9c0', boots: '#c93a76',
+    pack: { bag: '#ff9ccf', flap: '#c93a76', pocket: '#fff3b0', edge: '#c93a76' },
     front: <><rect x={10} y={19} width={8} height={7} rx={1.5} fill="#5fc4a8" /><circle cx={11.5} cy={19.8} r={0.8} fill="#fff" /><circle cx={16.5} cy={19.8} r={0.8} fill="#fff" /></>,
     head: <>
       <circle cx={14} cy={11.5} r={6.5} fill={SKIN} />
@@ -90,12 +92,34 @@ const LOOKS: Record<WorldId, Look> = {
 const SWING = { originX: '50%', originY: '0%', transformBox: 'fill-box' } as const
 const STEP = { duration: 0.6, ease: 'easeInOut' } as const
 
-/** the explorer, from the front, or from `behind` (its pack on its back, no face) */
-function Figure({ world, walking, behind = false }: { world: WorldId; walking: boolean; behind?: boolean }) {
+/** the backpack seen from behind: straps over the shoulders, the bag, a flap with a buckle, a front pocket */
+/**
+ * The backpack seen from behind: straps over the shoulders, the bag, a flap with a buckle, a front pocket.
+ * `stash` > 0: for that many seconds the flap flips up (showing the bag's opening), stays open, then closes.
+ */
+function Pack({ bag, flap, pocket, edge, stash = 0 }: Look['pack'] & { stash?: number }) {
+  return <>
+    <path d="M9.5 17.5V15.6M18.5 17.5V15.6" stroke={edge} strokeWidth={1.6} strokeLinecap="round" />
+    <rect x={7} y={17} width={14} height={13.5} rx={3} fill={bag} stroke={edge} strokeWidth={0.8} />
+    <ellipse cx={14} cy={19.4} rx={5.6} ry={1.7} fill="#2a2238" />
+    <motion.g
+      style={{ originX: '50%', originY: '0%', transformBox: 'fill-box' }}
+      animate={stash > 0 ? { scaleY: [1, -1, -1, 1] } : { scaleY: 1 }}
+      transition={stash > 0 ? { duration: stash, times: [0, FLAP.open / stash, 1 - FLAP.close / stash, 1], ease: 'easeInOut' } : { duration: 0 }}
+    >
+      <path d="M7.4 20.6V19.6q0-2.2 2.2-2.2h8.8q2.2 0 2.2 2.2v1q-6.6 2.4-13.2 0z" fill={flap} stroke={edge} strokeWidth={0.6} />
+      <rect x={13} y={20.6} width={2} height={2.4} rx={0.5} fill={edge} />
+    </motion.g>
+    <rect x={9.5} y={24.4} width={9} height={4.6} rx={1.4} fill={pocket} stroke={edge} strokeWidth={0.6} />
+  </>
+}
+
+/** the explorer, from the front (its pack behind it), or from `behind` (its pack on its back, no face) */
+function Figure({ world, walking, behind = false, stash = 0 }: { world: WorldId; walking: boolean; behind?: boolean; stash?: number }) {
   const L = LOOKS[world]
   const leg = (a: number) => walking ? { rotate: [0, a, -a, a, 0] } : { rotate: 0 }
   return <>
-    {!behind && L.back}
+    {!behind && <rect x={6.5} y={17.5} width={15} height={11} rx={3} fill={L.pack.bag} stroke={L.pack.edge} strokeWidth={0.8} />}
     <motion.rect x={9} y={28} width={4.6} height={11} rx={2} fill={L.legs} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(26)} transition={STEP} />
     <motion.rect x={14.4} y={28} width={4.6} height={11} rx={2} fill={L.legs} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(-26)} transition={STEP} />
     <rect x={8} y={38} width={6} height={4.5} rx={1.8} fill={L.boots} />
@@ -103,7 +127,7 @@ function Figure({ world, walking, behind = false }: { world: WorldId; walking: b
     <motion.rect x={4.2} y={18} width={4.2} height={10.5} rx={2} fill={L.arms} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(-22)} transition={STEP} />
     <motion.rect x={19.6} y={18} width={4.2} height={10.5} rx={2} fill={L.arms} stroke={L.edge} strokeWidth={0.6} style={SWING} animate={leg(22)} transition={STEP} />
     <rect x={8} y={16.5} width={12} height={13} rx={3.5} fill={L.suit} stroke={L.edge} strokeWidth={0.8} />
-    {behind ? L.back : L.front}
+    {behind ? <Pack {...L.pack} stash={stash} /> : L.front}
     {behind ? L.headBack : L.head}
   </>
 }
@@ -119,10 +143,12 @@ export function ExplorerIcon({ world, size = 22 }: { world: WorldId; size?: numb
  * of the way there. On the map that is toward the next region while the map slides under it; inside a biome (see
  * Practice) it walks along the trail while the ground scrolls past.
  */
-export function Explorer({ world, left, top, step, toward, delay, height = 41, back = false, run = false }: {
+export function Explorer({ world, left, top, step, toward, delay, height = 41, back = false, leave, stash = 0 }: {
   world: WorldId; left: number; top: number; step: number | string; toward: readonly number[] | null; delay: number; height?: number; back?: boolean
-  /** fleeing: it leans and runs off across the field to the left (seen from behind) */
-  run?: boolean
+  /** leaving the biome across the field to the left (seen from behind): running when you flee, walking when you stop */
+  leave?: { pace: 'run' | 'walk'; seconds: number }
+  /** stopping a dig: for this many seconds the backpack opens, bounces as the loot drops in, and closes */
+  stash?: number
 }) {
   const reduce = useReducedMotion()
   const walking = !!toward && !reduce
@@ -132,8 +158,8 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
       className="explorer"
       style={{ left, top }}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1, x: run ? -height * 1.3 : 0 }}
-      transition={{ opacity: { duration: 0.3, ease: 'easeOut', delay }, x: { duration: 0.6, ease: 'easeIn' } }}
+      animate={{ opacity: 1, x: leave ? -height * 1.3 : 0 }}
+      transition={{ opacity: { duration: 0.3, ease: 'easeOut', delay }, x: { duration: leave?.seconds ?? 0.6, ease: leave?.pace === 'walk' ? 'easeInOut' : 'easeIn' } }}
       role="img"
       aria-label={`You are here (the ${LOOKS[world].name})`}
     >
@@ -143,16 +169,20 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
         // from behind it walks away from you: two steps, a bob on each and the shoulders swaying side to side;
         // otherwise it strides toward the next region
         style={back ? { originX: 0.5, originY: 1 } : undefined}
-        animate={!walking ? undefined : run
+        animate={!walking ? undefined : stash
+          ? { y: [0, 0, 4, 0, 4, 0, 4, 0, 0], scaleY: [1, 1, 0.97, 1, 0.97, 1, 0.97, 1, 1] }
+          : leave?.pace === 'run'
           ? { y: [0, -9, 0, -9, 0, -9, 0], rotate: -14 }
+          : leave
+          ? { y: [0, -6, 0, -6, 0, -6, 0, -6, 0], rotate: [0, -5, -2, -5, -2, -5, -2, -5, -3] }
           : back
           ? { y: [0, -7, 0, -7, 0], rotate: [0, -3, 0, 3, 0], x: [0, -3, 0, 3, 0] }
           : { x: [0, dx * 0.35, 0], y: [0, dy * 0.35 - 5, dy * 0.2, 0] }}
-        transition={{ duration: back && !run ? 0.8 : 0.6, ease: run ? 'linear' : 'easeInOut', delay }}
+        transition={{ duration: stash || leave?.seconds || (back ? 0.8 : 0.6), ease: leave ? 'linear' : 'easeInOut', delay }}
       >
         <svg viewBox={`0 0 ${VW} ${VH}`} width={(height * VW) / VH} height={height} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
           {/* from behind it bobs as it walks; swinging arms that close up would look like flapping */}
-          <Figure world={world} walking={walking && !back} behind={back} />
+          <Figure world={world} walking={walking && !back} behind={back} stash={reduce ? 0 : stash} />
         </svg>
       </motion.div>
     </motion.div>

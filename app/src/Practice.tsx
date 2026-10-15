@@ -14,7 +14,7 @@ import type { Flavour, WorldId } from './menu/worlds'
 import { Panorama, RegionArt } from './regionArt'
 import { BiomeDive } from './biome'
 import { reducedMotion } from './menu/reducedMotion'
-import { DIVE_SECONDS } from './menu/transition'
+import { DIVE_SECONDS, FLAP } from './menu/transition'
 import { Explorer, ExplorerIcon } from './explorer'
 import { PlanetMap } from './planetMap'
 import { B, FitScreen, HowToPlay } from './shared'
@@ -85,6 +85,19 @@ const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? M
 const STRIKE = { fly: 0.45, shake: 0.35 }
 /** fleeing plays before it happens: the explorer runs off the side of the map, then the camera rises out */
 const RUN_OFF = 0.6
+/** stopping plays before it happens: the backpack opens, the loot drops in one card after another, it closes, and the
+ *  explorer walks off across the field (as when fleeing, at a walk); then the camera rises out */
+const STASH = { fly: 0.7, gap: 0.18 }
+const WALK_OFF = 1.3
+/** where the backpack's opening is on the stage, seen from behind (explorer.tsx Pack: the opening at 14, 19.4 of 28 × 44) */
+const PACK = { x: MAP0.x + HERO.left + (14 / 44) * HERO.h, y: MAP0.y + HERO.top + (19.4 / 44) * HERO.h }
+/** a card going into the backpack: up beside the explorer's shoulder at a size that fits the opening (clear of its
+ *  head), then down into the open bag */
+const INTO_PACK = {
+  x: [PACK.x - CW / 2 - 58, PACK.x - CW / 2],
+  y: [PACK.y - CH / 2 - 30, PACK.y - CH / 2 + 4],
+  scale: [0.3, 0.2],
+}
 /** how far you walk forward into the biome on each card you turn up (the field streams toward you this far) */
 const STRIDE = 75
 /** the board swaps to the biome (and back to the map) at the end of the camera's dive, under the colour wash (biome.tsx) */
@@ -103,6 +116,8 @@ interface Placed {
   hidden?: boolean
   /** a hostile card being hit: it shakes and flashes once your card reaches it */
   hit?: boolean
+  /** loot going into the backpack, in this order: it arcs over the open bag, shrinks and drops in; -1: already in it */
+  stash?: number
   /** seconds before the card comes into sight or fades out */
   delay?: number
 }
@@ -115,7 +130,11 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
     <motion.div
       className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${p.hit ? 'hit' : ''} ${onClick ? 'clickable' : ''}`}
       initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), opacity: 0 }}
-      animate={{ x: p.hit ? [p.x, p.x - 7, p.x + 7, p.x - 4, p.x + 4, p.x] : p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: 1 }}
+      animate={p.stash === -1
+        ? { x: INTO_PACK.x[1], y: INTO_PACK.y[1], scale: INTO_PACK.scale[1], opacity: 0 }
+        : p.stash !== undefined
+        ? { x: [p.x, ...INTO_PACK.x], y: [p.y, ...INTO_PACK.y], scale: [1, ...INTO_PACK.scale], opacity: [1, 1, 1, 0] }
+        : { x: p.hit ? [p.x, p.x - 7, p.x + 7, p.x - 4, p.x + 4, p.x] : p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: 1 }}
       variants={{
         exit: (c: { dest: (id: number) => { x: number; y: number } | null; dir: number | null }) => {
           // a card that scrolls off the map keeps sliding the way the window moves; spent cards fly to the "gone" pile
@@ -125,7 +144,11 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
         },
       }}
       exit="exit"
-      transition={p.hit
+      transition={p.stash === -1
+        ? { duration: 0 }
+        : p.stash !== undefined
+        ? { duration: STASH.fly, delay: FLAP.open + p.stash * STASH.gap, times: [0, 0.6, 1], ease: ['easeOut', 'easeIn'], opacity: { duration: STASH.fly, delay: FLAP.open + p.stash * STASH.gap, times: [0, 0.6, 0.9, 1] } }
+        : p.hit
         ? { x: { delay: STRIKE.fly, duration: STRIKE.shake } }
         : { duration: 0.6, ease: [0.4, 0, 0.2, 1], delay: p.delay }}
       onClick={onClick}
@@ -265,7 +288,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const stageRef = useRef<HTMLDivElement>(null)
   const [dir, setDir] = useState<number | null>(null)
   /** a fight or a flee playing out before it is applied (see strike, runAway); input waits for it, then `done` applies it */
-  const [act, setAct] = useState<({ kind: 'fight'; card: number } | { kind: 'flee' }) & { seconds: number; done: () => void } | null>(null)
+  const [act, setAct] = useState<({ kind: 'fight'; card: number } | { kind: 'flee' | 'stash' | 'walk' }) & { seconds: number; done: () => void } | null>(null)
   useEffect(() => {
     if (!act) return
     const t = window.setTimeout(() => { setAct(null); act.done() }, act.seconds * 1000)
@@ -318,7 +341,14 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   }
   const strike = (i: number) => { if (canFight(s, i)) playThen({ kind: 'fight', card: s.hand[i] }, STRIKE.fly + STRIKE.shake + 0.1, () => fight(s, i)) }
   const runAway = () => { if (canFlee(s)) playThen({ kind: 'flee' }, RUN_OFF, () => flee(s)) }
-  const doAdvice = (a: Advice) => a.kind === 'fight' ? strike(a.i) : a.kind === 'flee' ? runAway() : push(applyAdvice(s, a), a.kind === 'move' ? a.d : null)
+  /** stop: the loot goes into the backpack, the explorer walks off, then the stop is applied */
+  const stopDig = () => {
+    if (act || !canStop(s)) return
+    if (reducedMotion) return push(stop(s))
+    const fill = STASH.fly + STASH.gap * Math.max(0, s.dig!.loot.length - 1)
+    setAct({ kind: 'stash', seconds: FLAP.open + fill + FLAP.close, done: () => setAct({ kind: 'walk', seconds: WALK_OFF, done: () => push(stop(s)) }) })
+  }
+  const doAdvice = (a: Advice) => a.kind === 'fight' ? strike(a.i) : a.kind === 'flee' ? runAway() : a.kind === 'stop' ? stopDig() : push(applyAdvice(s, a), a.kind === 'move' ? a.d : null)
 
   const clickHand = (i: number) => {
     if (s.over || act) return
@@ -368,8 +398,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     const last = d.loot[d.loot.length - 1]
     const foes = d.hostile >= 0 || d.found >= 0 ? [d.hostile, d.found].filter(c => c >= 0) : last !== undefined && suit(last) !== suit(s.gc[4]) ? [last] : []
     const loot = d.loot.filter(c => !foes.includes(c))
-    loot.forEach((c, j) => placed.push({ id: c, ...lootPos(j, loot.length), zone: 'dig', dir, down: false, delay }))
-    foes.forEach((c, j) => placed.push({
+    // stopping: the loot fan goes into the backpack from the front card back, then the card across from you
+    const stash = (c: number) => act?.kind === 'walk' ? -1 : act?.kind === 'stash' ? [...loot].reverse().concat(foes).indexOf(c) : undefined
+    loot.forEach((c, j) => placed.push({ id: c, ...lootPos(j, loot.length), zone: 'dig', dir, down: false, delay, stash: stash(c) }))
+    foes.forEach((c, j) => placed.push({ stash: stash(c),
       id: c, x: FOE_CARD.x + j * (CW + 8), y: FOE_CARD.y, zone: 'dig', dir, down: false, glow: c === d.hostile || c === d.found, delay, hit: act?.kind === 'fight' && c === d.hostile,
       tag: c === d.hostile ? 'HOSTILE' : c === d.found ? 'KEY' : 'loot',
     }))
@@ -419,11 +451,11 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
       if (arrow >= 0) { if (ready && canMove(s)) setPending({ kind: 'move', d: arrow }) }
       else if (/^[0-9]$/.test(k)) { const h = handSorted[(+k + 9) % 10]; if (h && handClickable && (!pickSet || pickSet.has(h.i))) clickHand(h.i) }
       else if (k === ' ' || k === 'enter') {
-        if (s.dig) { if (canFlip(s)) push(flip(s)); else if (canStop(s)) push(stop(s)) }
+        if (s.dig) { if (canFlip(s)) push(flip(s)); else if (canStop(s)) stopDig() }
         else if (ready) { if (canFinish(s)) push(finish(s)); else if (canClaim(s)) push(claim(s)); else if (canDig(s)) push(dig(s)) }
         else if (s.over && k === 'enter') newDeal()
       }
-      else if (k === 's' && canStop(s)) push(stop(s))
+      else if (k === 's' && canStop(s)) stopDig()
       else if (k === 'f' && canFlee(s)) runAway()
       else if (k === 'l' && canLeave(s)) push(leave(s))
       else if (k === 'z' && ready && canScout(s)) zoomOut()
@@ -511,7 +543,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             </>}
             {s.dig && <>
               {canFlip(s) && <button className={`big ${adv?.kind === 'flip' ? 'glow' : ''}`} onClick={() => push(flip(s))}>Flip next <small>{s.dig.depth - s.dig.flips} left</small></button>}
-              {canStop(s) && <button className={adv?.kind === 'stop' ? 'glow' : ''} onClick={() => push(stop(s))}>Stop <small>keep the loot</small></button>}
+              {canStop(s) && <button className={adv?.kind === 'stop' ? 'glow' : ''} onClick={stopDig}>Stop <small>keep the loot</small></button>}
               {hostile && canFlee(s) && <button className={`danger ${fightSet.size ? '' : 'urgent'} ${adv?.kind === 'flee' ? 'glow' : ''}`} onClick={runAway}>Flee <small>lose the loot + 1 random card</small></button>}
               {found && canLeave(s) && <button className={`big ${adv?.kind === 'leave' ? 'glow' : ''}`} onClick={() => push(leave(s))}>Leave it waiting</button>}
             </>}
@@ -540,8 +572,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                       <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} · Loot <b>{s.dig.loot.length}</b></span>
                       <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
                     </div>
-                    {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up or beat, and runs off the side when you flee */}
-                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act?.kind === 'flee' ? 'run' : `dig ${s.steps}`} toward={[0, 0]} delay={0} run={act?.kind === 'flee'} />
+                    {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up or beat, runs off the side when you flee, and takes the loot in its backpack when you stop */}
+                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act && act.kind !== 'fight' ? act.kind : `dig ${s.steps}`} toward={[0, 0]} delay={0}
+                      leave={act?.kind === 'flee' ? { pace: 'run', seconds: RUN_OFF } : act?.kind === 'walk' ? { pace: 'walk', seconds: WALK_OFF } : undefined}
+                      stash={act?.kind === 'stash' ? act.seconds : 0} />
                   </>}
                 </motion.div>
               )}

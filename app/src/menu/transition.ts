@@ -9,3 +9,6 @@ export const RISE_SECONDS = 0.8
 export const VEIL_START = 0.55
 /** On the way back the wash clears quickly, so the pull-back is seen rather than hidden under it. */
 export const RISE_VEIL_SECONDS = 0.2
+
+/** Stopping a dig: how long the explorer's backpack flap takes to open, and to close again once the loot is in (explorer.tsx). */
+export const FLAP = { open: 0.25, close: 0.2 }

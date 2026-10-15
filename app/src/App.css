@@ -135,6 +135,8 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .acard.hidden { pointer-events: none; }
 /* you are here: the world's explorer on the middle region's corner */
 .stage .explorer { position: absolute; z-index: 4; pointer-events: none; filter: drop-shadow(0 2px 2px #0008); }
+/* inside a biome the explorer stands under the cards, so loot is seen dropping into its backpack */
+.stage .mapbiome .explorer { z-index: 2; }
 .stage .explorer svg { display: block; overflow: visible; }
 .stage .arrow { position: absolute; padding: 4px 12px; font-size: 16px; z-index: 2; }
 .stage .pilecard.back { position: absolute; margin: 0; width: 62px; height: 88px; border-radius: 7px; }
