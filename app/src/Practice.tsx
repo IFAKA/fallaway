@@ -191,7 +191,7 @@ function Coach({ s, pending, tipOn }: { s: State; pending: Pending; tipOn: boole
   const c = coachText(s, pending, tipOn)
   if (!c) return null
   return (
-    <div className="coach" aria-live="polite">
+    <div className={`coach ${s.dig && s.dig.hostile >= 0 ? 'alert' : ''}`} aria-live="polite">
       <div className="coach-title">{c.title}</div>
       <div className="coach-line">{c.line}</div>
     </div>
@@ -449,7 +449,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             {s.dig && <>
               {canFlip(s) && <button className={`big ${adv?.kind === 'flip' ? 'glow' : ''}`} onClick={() => push(flip(s))}>Flip next <small>{s.dig.depth - s.dig.flips} left</small></button>}
               {canStop(s) && <button className={adv?.kind === 'stop' ? 'glow' : ''} onClick={() => push(stop(s))}>Stop <small>keep the loot</small></button>}
-              {hostile && canFlee(s) && <button className={adv?.kind === 'flee' ? 'glow' : ''} onClick={() => push(flee(s))}>Flee <small>lose the loot + 1 random card</small></button>}
+              {hostile && canFlee(s) && <button className={`danger ${fightSet.size ? '' : 'urgent'} ${adv?.kind === 'flee' ? 'glow' : ''}`} onClick={() => push(flee(s))}>Flee <small>lose the loot + 1 random card</small></button>}
               {found && canLeave(s) && <button className={`big ${adv?.kind === 'leave' ? 'glow' : ''}`} onClick={() => push(leave(s))}>Leave it waiting</button>}
             </>}
             {pending && <button onClick={() => setPending(null)}>Cancel <small>Esc</small></button>}
