@@ -69,21 +69,20 @@ const STAGE = { w: MAP0.x + MAP.w + 2, h: HANDZ.y + HANDZ.h + 6 }
 // where a new row/column enters from for each move direction (up, down, left, right)
 const SLIDE = [[0, -MAP.py], [0, MAP.py], [-MAP.px, 0], [MAP.px, 0]]
 const cellPos = (i: number) => ({ x: MAP0.x + MAP.x + (i % 3) * MAP.px, y: MAP0.y + MAP.y + Math.floor(i / 3) * MAP.py })
-// While you dig you are inside the region, as in a battle screen: the biome fills the map, the explorer stands on a
-// platform in front, seen from behind and as tall as a card, and the card you just turned up (a hostile card, a key
-// card, or loot) stands on a platform across from it. A bar above each side: how deep you have dug, and the loot so far.
+// While you dig you are inside the region, looking over the explorer's shoulder: the biome fills the map with the
+// ground stretching up to a high horizon, the explorer stands big in the bottom-right corner, seen from behind (head
+// and shoulders, cut off by the map's edge), and the card you just turned up (a hostile card, a key card, or loot)
+// stands on the ground ahead, up by the horizon. How deep you have dug and the loot so far sit in the bottom-left corner.
 // Map-zone coordinates (add MAP0 for the stage).
-/** the turned-up card's platform (its centre) and the card standing on it */
-const FOE = { cx: 236, cy: 226 }
-const FOE_CARD = { x: MAP0.x + FOE.cx - CW / 2, y: MAP0.y + FOE.cy - CH + 6 }
-/** where a turned-up card comes into sight: from the right, beside its platform */
+/** the turned-up card, up ahead on the ground */
+const FOE_CARD = { x: MAP0.x + 34, y: MAP0.y + 78 }
+/** where a turned-up card comes into sight: from the right, along the horizon */
 const FOE_IN = { x: MAP0.x + MAP.w + 10, y: FOE_CARD.y }
-/** the explorer's platform (its centre) and the explorer standing on it */
-const HERO = { cx: 92, cy: 384, h: 96 }
-const HERO_AT = { left: MAP0.x + HERO.cx - 32, top: MAP0.y + HERO.cy - HERO.h + 6 }
-/** the loot so far: a fan of cards beside the explorer, under its bar */
-const LOOT = { x: 168, y: 290 }
-const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? Math.min(24, (MAP.w - 10 - LOOT.x - CW) / (n - 1)) : 0), y: MAP0.y + LOOT.y })
+/** the explorer from behind: the whole figure, `h` tall, placed so only its head and shoulders show above the map's edge */
+const HERO = { left: MAP.w - 160, top: MAP.h - 180, h: 270 }
+/** how deep you have dug and the loot so far: a panel, with the loot fanned out under it */
+const LOOT = { x: 12, y: 300, w: 146 }
+const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? Math.min(24, (LOOT.w - CW) / (n - 1)) : 0), y: MAP0.y + LOOT.y })
 /** how far the ground scrolls past on each card you turn up */
 const STRIDE = 72
 /** the board swaps to the biome (and back to the map) at the end of the camera's dive, under the colour wash (biome.tsx) */
@@ -345,7 +344,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     const loot = d.loot.filter(c => !foes.includes(c))
     loot.forEach((c, j) => placed.push({ id: c, ...lootPos(j, loot.length), zone: 'dig', dir, down: false, delay }))
     foes.forEach((c, j) => placed.push({
-      id: c, x: FOE_CARD.x - j * (CW + 8), y: FOE_CARD.y, zone: 'dig', dir, down: false, glow: c === d.hostile || c === d.found, delay,
+      id: c, x: FOE_CARD.x + j * (CW + 8), y: FOE_CARD.y, zone: 'dig', dir, down: false, glow: c === d.hostile || c === d.found, delay,
       tag: c === d.hostile ? 'HOSTILE' : c === d.found ? 'KEY' : 'loot',
     }))
   }
@@ -494,17 +493,14 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             <AnimatePresence>
               {biome !== null && (
                 <motion.div key={biome} className="mapbiome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.2, delay: ARRIVE } }} exit={{ opacity: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }}>
-                  <Panorama world={world} suit={biome} walked={s.dig ? s.dig.flips * STRIDE : 0} />
+                  <Panorama world={world} suit={biome} walked={s.dig ? s.dig.flips * STRIDE : 0} field />
                   {s.dig && <>
-                    <div className="platform" style={{ left: FOE.cx - 75, top: FOE.cy - 16, width: 150, height: 32 }} />
-                    <div className="platform" style={{ left: HERO.cx - 85, top: HERO.cy - 20, width: 170, height: 40 }} />
-                    <div className="dbar" style={{ left: 12, top: 16, width: 176 }}>
-                      <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} <small>(key cards don't count)</small></span>
+                    <div className="dbar" style={{ left: LOOT.x - 4, top: LOOT.y - 50, width: LOOT.w + 8 }} title="Key cards you turn up don't count toward the dig.">
+                      <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} · Loot <b>{s.dig.loot.length}</b></span>
                       <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
                     </div>
-                    <div className="dbar" style={{ left: LOOT.x - 4, top: LOOT.y - 34, width: MAP.w - LOOT.x - 6 }}>
-                      <span>Loot <b>{s.dig.loot.length}</b></span>
-                    </div>
+                    {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on for every card you turn up while the ground scrolls past */}
+                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={`dig ${s.dig.flips}`} toward={[0, 0]} delay={0} />
                   </>}
                 </motion.div>
               )}
@@ -533,10 +529,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <AnimatePresence custom={{ dest, dir }}>
             {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
-          {dealt && (s.dig
-            // inside the biome: seen from behind, walking on for every card you turn up while the ground scrolls past
-            ? <Explorer key="trail" world={world} {...HERO_AT} height={HERO.h} back step={`dig ${s.dig.flips}`} toward={[0, 0]} delay={ARRIVE} />
-            : <Explorer key="map" world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={0} />)}
+          {dealt && !s.dig && <Explorer world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={0} />}
         </div>
         </FitScreen>
       </div>

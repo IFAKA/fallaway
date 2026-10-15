@@ -142,7 +142,8 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
         transition={{ duration: 0.6, ease: 'easeInOut', delay }}
       >
         <svg viewBox={`0 0 ${VW} ${VH}`} width={(height * VW) / VH} height={height} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
-          <Figure world={world} walking={walking} behind={back} />
+          {/* from behind it bobs as it walks; swinging arms that close up would look like flapping */}
+          <Figure world={world} walking={walking && !back} behind={back} />
         </svg>
       </motion.div>
     </motion.div>

@@ -143,6 +143,13 @@ const MOON: Set4 = [
   </>,
 ]
 
+/** each biome's nearest ground colour (its scene's bottom edge), in SUITS order: the field in front of you while you dig */
+const FIELD: Record<WorldId, readonly [string, string, string, string]> = {
+  earth: ['#5e9e5a', '#5fb04f', '#d49a45', '#3f7a3a'],
+  candy: ['#c9b8ff', '#ffb7d3', '#b8692a', '#9be0b0'],
+  moon: ['#5c6080', '#cfe3f5', '#6e6a80', '#9a9cb0'],
+}
+
 const ART: Record<WorldId, { sky: Sky; scenes: Set4 }> = {
   earth: { sky: EARTH_SKY, scenes: EARTH },
   candy: { sky: CANDY_SKY, scenes: CANDY },
@@ -174,8 +181,9 @@ const skyFill = ({ colour, stars }: Sky): CSSProperties['background'] => stars
  * A biome filling a window: its world's sky with its sun (or Earth) at a natural size, and the region's ground
  * repeated in a strip along the bottom, so a forest is a row of pines rather than one pine as tall as the screen.
  * `walked`: how many pixels the ground has scrolled past to the left, as you walk through the biome.
+ * `field`: the ground also runs on toward you below the strip, in the biome's nearest ground colour (a close-up view).
  */
-export function Panorama({ world, suit, walked = 0 }: { world: WorldId; suit: number; walked?: number }) {
+export function Panorama({ world, suit, walked = 0, field = false }: { world: WorldId; suit: number; walked?: number; field?: boolean }) {
   const { sky, scenes } = ART[world]
   const { cx, cy, r, node } = sky.body
   return (
@@ -188,6 +196,7 @@ export function Panorama({ world, suit, walked = 0 }: { world: WorldId; suit: nu
           ))}
         </div>
       </div>
+      {field && <div className="panorama-field" style={{ backgroundColor: FIELD[world][suit], backgroundPositionX: -walked }} />}
     </div>
   )
 }
