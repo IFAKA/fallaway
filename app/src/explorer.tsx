@@ -45,6 +45,11 @@ const CANDY_KID = <>
 const LOOK: Record<WorldId, ReactNode> = { moon: ASTRONAUT, earth: HIKER, candy: CANDY_KID }
 const NAME: Record<WorldId, string> = { moon: 'astronaut', earth: 'hiker', candy: 'candy kid' }
 
+/** the explorer standing still, at any size: the map legend's "you are here" */
+export function ExplorerIcon({ world, size = 20 }: { world: WorldId; size?: number }) {
+  return <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden="true">{LOOK[world]}</svg>
+}
+
 /**
  * The explorer at `left`, `top` (stage coordinates). It hops each time the map moves under it (`step` changes), and
  * climbs down into the region while you dig there (it comes back out when the dig ends).

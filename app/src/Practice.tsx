@@ -13,7 +13,7 @@ import type { Start } from './screens'
 import type { Flavour, WorldId } from './menu/worlds'
 import { RegionArt } from './regionArt'
 import { BiomeDive } from './biome'
-import { Explorer } from './explorer'
+import { Explorer, ExplorerIcon } from './explorer'
 import { PlanetMap } from './planetMap'
 import { B, FitScreen, HowToPlay } from './shared'
 import { WHY, lbl, suitTxt } from './text'
@@ -455,6 +455,11 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
         <div className="stage" ref={stageRef} style={{ width: STAGE.w, height: STAGE.h }}>
           <div className="zcap" style={{ left: SAT.x, width: SAT.w }}>Satchel</div>
           <div className="zone" style={{ left: SAT.x, top: SAT.y, width: SAT.w, height: MAP.h }} />
+          {/* the map's key, in the satchel's free bottom corner */}
+          <div className="legend" style={{ left: SAT.x + 18, top: SAT.y + MAP.h - 34 }}>
+            <span><i className="legend-fog" /> fog (unexplored)</span>
+            <span><ExplorerIcon world={world} /> you are here</span>
+          </div>
           <div className="zcap" style={{ left: MAP0.x, width: MAP.w }}>
             {s.dig ? <>Digging {label(s.gc[4])} · up to {s.dig.depth} cards · <span className={isRed(s.gc[4]) ? 'redtxt' : ''}>{SUITS[suit(s.gc[4])]}</span> hostile</> : <>Map · dig the middle card<Fl t={flavour?.dig} /></>}
           </div>
