@@ -15,6 +15,8 @@
   --card-back: repeating-linear-gradient(45deg, #263a8c 0 5px, #3150b8 5px 10px);
   --card-back-edge: #fff;
   --title: #ffd36b;
+  --chart-edge: #4a9;    /* the map's frame (the planet itself is drawn in planetMap.tsx) */
+  --chart-ink: #9fd8b8;  /* the compass rose */
 }
 
 /* clip: while the camera dives into a card (biome.tsx) the board is scaled far past the window, which must not make the page scroll */
@@ -33,6 +35,8 @@
   --card-back: repeating-linear-gradient(45deg, #ff79ad 0 5px, #fff0f6 5px 10px);
   --card-back-edge: #fff0f6;
   --title: #ffb3d1;
+  --chart-edge: #ff8fbb;
+  --chart-ink: #ffb3d1;
 }
 
 /* Moon: night-blue table, starry card backs */
@@ -51,6 +55,8 @@
     #1d2150;
   --card-back-edge: #c3bbff;
   --title: #c3bbff;
+  --chart-edge: #7f86d6;
+  --chart-ink: #9fb4ff;
 }
 
 /* Real deck: you are looking at your own cards, so the backs on screen stay the classic ones; only the table is themed */

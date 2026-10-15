@@ -13,6 +13,8 @@ import type { Start } from './screens'
 import type { Flavour, WorldId } from './menu/worlds'
 import { RegionArt } from './regionArt'
 import { BiomeDive } from './biome'
+import { Explorer } from './explorer'
+import { PlanetMap } from './planetMap'
 import { B, FitScreen, HowToPlay } from './shared'
 import { WHY, lbl, suitTxt } from './text'
 
@@ -50,58 +52,47 @@ const DIRS = ['up', 'down', 'left', 'right']
 
 // ---------- the stage: every card lives in ONE coordinate space, so it slides, flips and flies off instead of jumping ----------
 const CW = 62, CH = 88
-const MAP = { x: 52, y: 46, px: 80, py: 104, w: 326, h: 388 }
+// Satchel on the left (key row, pile, waiting, gone), the map beside it, the hand along the bottom; each zone has a
+// caption above it. The actions sit beside the whole stage (FitScreen's aside).
+const CAP = 22 // caption height above the satchel and the map
+const SAT = { x: 0, y: CAP, w: 320 }
+const MAP0 = { x: 344, y: CAP } // the map zone's top-left corner
+const MAP = { x: 52, y: 46, px: 80, py: 112, w: 326, h: 404 } // cells inside the map zone
+const KEYROW = { x: 18, y: CAP + 20, w: 284 }
+const PILE = { x: 18, y: CAP + 154 }
+const WAIT = { x: 102, y: CAP + 154 }
+const GONE = { x: 18, y: CAP + 268, w: 284 }
+const HANDZ = { y: CAP + MAP.h + 14, h: 140 }
+const STAGE = { w: MAP0.x + MAP.w + 2, h: HANDZ.y + HANDZ.h + 6 }
 // where a new row/column enters from for each move direction (up, down, left, right)
 const SLIDE = [[0, -MAP.py], [0, MAP.py], [-MAP.px, 0], [MAP.px, 0]]
-const cellPos = (i: number) => ({ x: MAP.x + (i % 3) * MAP.px, y: MAP.y + Math.floor(i / 3) * MAP.py })
-
-/** Where everything but the map sits. Tall (phones: map, then the rest below it) or wide (desktop: the dig row and the key
- *  row beside the map, the hand along the bottom), so the table fills a landscape window instead of a narrow column. */
-interface Layout {
-  pile: { x: number; y: number }; wait: { x: number; y: number }
-  keyrow: { x: number; y: number; w: number }; gone: { x: number; y: number; w: number }
-  dig: { x: number; y: number; w: number; h: number }; handz: { y: number; h: number }; stage: { w: number; h: number }
-}
-const TALL: Layout = {
-  pile: { x: 380, y: 46 }, wait: { x: 460, y: 46 }, keyrow: { x: 380, y: 170, w: 330 }, gone: { x: 380, y: 300, w: 330 },
-  dig: { x: 0, y: 404, w: 720, h: 176 }, handz: { y: 596, h: 140 }, stage: { w: 720, h: 746 },
-}
-const WIDE: Layout = {
-  pile: { x: 380, y: 46 }, wait: { x: 460, y: 46 }, keyrow: { x: 380, y: 170, w: 710 }, gone: { x: 600, y: 46, w: 490 },
-  dig: { x: 372, y: 300, w: 726, h: 148 }, handz: { y: 458, h: 140 }, stage: { w: 1100, h: 604 },
-}
-const digPos = (L: Layout, j: number) => ({ x: L.dig.x + 18 + j * 96, y: L.dig.y + 32 })
-const handPos = (L: Layout, k: number, n: number) => ({ x: 18 + k * (n > 1 ? Math.min(76, (L.stage.w - 36 - CW) / (n - 1)) : 76), y: L.handz.y + 30 })
-const keyPos = (L: Layout, k: number, n: number) => ({ x: L.keyrow.x + k * (n > 1 ? Math.min(68, (L.keyrow.w - CW) / (n - 1)) : 68), y: L.keyrow.y })
-const WIDE_QUERY = '(min-width: 900px)'
-/** wide table on a landscape window, tall table on a phone (same breakpoint as the one-column CSS) */
-function useWide(): boolean {
-  const [wide, setWide] = useState(() => typeof matchMedia === 'undefined' || matchMedia(WIDE_QUERY).matches)
-  useEffect(() => {
-    const mq = matchMedia(WIDE_QUERY)
-    const on = () => setWide(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [])
-  return wide
-}
+const cellPos = (i: number) => ({ x: MAP0.x + MAP.x + (i % 3) * MAP.px, y: MAP0.y + MAP.y + Math.floor(i / 3) * MAP.py })
+/** while you dig, the region stays in the middle and what you turn up lies around it, top row first */
+const RING = [0, 1, 2, 3, 5, 6, 7, 8]
+const digPos = (j: number) => cellPos(RING[j % RING.length])
+const handPos = (k: number, n: number) => ({ x: 18 + k * (n > 1 ? Math.min(76, (STAGE.w - 36 - CW) / (n - 1)) : 76), y: HANDZ.y + 30 })
+const keyPos = (k: number, n: number) => ({ x: KEYROW.x + k * (n > 1 ? Math.min(68, (KEYROW.w - CW) / (n - 1)) : 68), y: KEYROW.y })
 
 interface Placed {
   id: number; x: number; y: number; down: boolean; zone: 'map' | 'dig' | 'hand' | 'other'; dir: number | null
   selected?: boolean; dim?: boolean; turned?: boolean; glow?: boolean; tag?: string; tagCls?: string; onClick?: () => void
   /** a face-up region on the map (not a key card or the finish card): it shows its world's landscape */
   region?: boolean
+  /** a face-down region on the map: unexplored, under fog */
+  fog?: boolean
+  /** a map region hidden while you dig (the dig's cards lie in its place) */
+  hidden?: boolean
 }
-function StageCard({ p, world, pile: PILE }: { p: Placed; world: WorldId; pile: { x: number; y: number } }) {
+function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   // a card on its way out (spent, claimed, fallen off) keeps its old props while it animates: it must not be clickable,
   // or a click would replay an action on an old state
   const present = useIsPresent()
-  const onClick = present ? p.onClick : undefined
+  const onClick = present && !p.hidden ? p.onClick : undefined
   return (
     <motion.div
-      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.glow && present ? 'glow' : ''} ${onClick ? 'clickable' : ''}`}
+      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${onClick ? 'clickable' : ''}`}
       initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : { x: PILE.x, y: PILE.y }), opacity: 0 }}
-      animate={{ x: p.x, y: p.y, opacity: 1 }}
+      animate={{ x: p.x, y: p.y, opacity: p.hidden ? 0 : 1 }}
       variants={{
         exit: (c: { dest: (id: number) => { x: number; y: number } | null; dir: number | null }) => {
           // a card that scrolls off the map keeps sliding the way the window moves; spent cards fly to the "gone" pile
@@ -126,6 +117,18 @@ function StageCard({ p, world, pile: PILE }: { p: Placed; world: WorldId; pile: 
       </motion.div>
       {p.tag && <span className={`ctag ${p.tagCls ?? ''}`}>{p.tag}</span>}
     </motion.div>
+  )
+}
+
+/** the map's compass rose, in its bottom-right corner */
+function Compass() {
+  return (
+    <svg className="compass" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+      <circle cx="20" cy="20" r="13" fill="none" stroke="currentColor" strokeWidth="1" opacity=".5" />
+      <path d="M20 6l3 14-3 14-3-14z" fill="currentColor" opacity=".85" />
+      <path d="M6 20l14-3 14 3-14 3z" fill="currentColor" opacity=".45" />
+      <text x="20" y="5" textAnchor="middle" fontSize="6" fontWeight="700" fill="currentColor">N</text>
+    </svg>
   )
 }
 
@@ -234,7 +237,6 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const [hint, setHint] = useState(false)
   const [intro, setIntro] = useState(() => { try { return !localStorage.getItem(SEEN) && !urlSeed() } catch { return false } })
   const stageRef = useRef<HTMLDivElement>(null)
-  const L = useWide() ? WIDE : TALL
   const [dir, setDir] = useState<number | null>(null)
   const s = history[history.length - 1]
 
@@ -310,43 +312,44 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
       : isKeyCard(s, c) ? `🔒 any ${rankLabel(rank(c))}${s.hand.some(x => rank(x) === rank(c)) ? ' ✓' : ''}`
       : s.gdone[i] ? '✓' : `dig ${depthOf(c)} · ${danger}`
     placed.push({
-      id: c, x, y, zone: 'map', dir, down: !up, region, dim: s.gdone[i] > 0 || !!s.dig, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
+      id: c, x, y, zone: 'map', dir, down: !up, region, fog: !up, hidden: !!s.dig && i !== 4, dim: (s.gdone[i] > 0 || !!s.dig) && !(s.dig && i !== 4), turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
       glow: (adv?.kind === 'dig' || adv?.kind === 'finish' || adv?.kind === 'claim') && i === 4,
       tag, onClick: ready && i !== 4 ? () => clickCell(i) : ready && (canDig(s) || canClaim(s) || canFinish(s)) && i === 4 ? () => clickCell(i) : undefined,
     })
   })
   const digCards = s.dig ? [...s.dig.loot, ...(s.dig.hostile >= 0 ? [s.dig.hostile] : []), ...(s.dig.found >= 0 ? [s.dig.found] : [])] : []
   digCards.forEach((c, j) => placed.push({
-    id: c, ...digPos(L, j), zone: 'dig', dir, down: false, glow: c === s.dig!.hostile || c === s.dig!.found,
+    id: c, ...digPos(j), zone: 'dig', dir, down: false, glow: c === s.dig!.hostile || c === s.dig!.found,
     tag: c === s.dig!.hostile ? 'HOSTILE' : c === s.dig!.found ? 'KEY' : 'loot',
   }))
-  ;[...s.keys].sort((a, b) => rank(a) - rank(b)).forEach((c, k) => placed.push({ id: c, ...keyPos(L, k, s.keys.length), zone: 'other', dir, down: false }))
-  s.wait.forEach((c, k) => placed.push({ id: c, x: L.wait.x + k * 14, y: L.wait.y + k * 6, zone: 'other', dir, down: false, tag: k === s.wait.length - 1 ? 'waiting' : undefined }))
+  ;[...s.keys].sort((a, b) => rank(a) - rank(b)).forEach((c, k) => placed.push({ id: c, ...keyPos(k, s.keys.length), zone: 'other', dir, down: false }))
+  s.wait.forEach((c, k) => placed.push({ id: c, x: WAIT.x + k * 14, y: WAIT.y + k * 6, zone: 'other', dir, down: false, tag: k === s.wait.length - 1 ? 'waiting' : undefined }))
   handSorted.forEach(({ c, i }, k) => {
     const opens = want.has(rank(c)) && vis.has(rank(c))
     const guard = s.dig && suit(c) === suit(s.gc[4])
     placed.push({
-      id: c, ...handPos(L, k, handSorted.length), zone: 'hand', dir, down: false,
+      id: c, ...handPos(k, handSorted.length), zone: 'hand', dir, down: false,
       selected: false, glow: hlHand.has(i) || (!!pickSet && pickSet.has(i) && !hint), dim: !!pickSet && !pickSet.has(i),
       tag: guard ? 'defends' : opens ? '🔑' : undefined,
       onClick: handClickable && (!pickSet || pickSet.has(i)) ? () => clickHand(i) : undefined,
     })
   })
-  const dest = (id: number) => (s.gone.includes(id) ? { x: L.gone.x + 120, y: L.gone.y } : s.keys.includes(id) ? { x: L.keyrow.x + 120, y: L.keyrow.y } : s.hand.includes(id) ? { x: 300, y: L.handz.y + 30 } : null)
+  const dest = (id: number) => (s.gone.includes(id) ? { x: GONE.x + 120, y: GONE.y } : s.keys.includes(id) ? { x: KEYROW.x + 120, y: KEYROW.y } : s.hand.includes(id) ? { x: 300, y: HANDZ.y + 30 } : null)
 
   const arrows = [
-    { d: 0, ch: '▲', style: { left: MAP.w / 2 - 20, top: 8 } },
-    { d: 1, ch: '▼', style: { left: MAP.w / 2 - 20, top: MAP.h - 40 } },
-    { d: 2, ch: '◀', style: { left: 6, top: MAP.h / 2 - 18 } },
-    { d: 3, ch: '▶', style: { left: MAP.w - 46, top: MAP.h / 2 - 18 } },
+    { d: 0, ch: '▲', name: 'north', style: { left: MAP0.x + MAP.w / 2 - 20, top: MAP0.y + 8 } },
+    { d: 1, ch: '▼', name: 'south', style: { left: MAP0.x + MAP.w / 2 - 20, top: MAP0.y + MAP.h - 40 } },
+    { d: 2, ch: '◀', name: 'west', style: { left: MAP0.x + 6, top: MAP0.y + MAP.h / 2 - 18 } },
+    { d: 3, ch: '▶', name: 'east', style: { left: MAP0.x + MAP.w - 46, top: MAP0.y + MAP.h / 2 - 18 } },
   ]
+  const here = cellPos(4)
   // entering a biome: digging the middle region dives into its card (worlds with biome colours, see biome.tsx)
   const biome = s.dig ? suit(s.gc[4]) : null
   /** the middle card on screen, where the camera dives in and rises out; the stage may be scaled down to fit (see Fit) */
   const middleCard = () => {
     const r = stageRef.current?.getBoundingClientRect()
     if (!r) return null
-    const k = r.width / L.stage.w, at = cellPos(4)
+    const k = r.width / STAGE.w, at = cellPos(4)
     return { left: r.left + at.x * k, top: r.top + at.y * k, width: CW * k, height: CH * k }
   }
   const goneSorted = [...s.gone].sort((a, b) => suit(a) - suit(b) || rank(a) - rank(b))
@@ -407,7 +410,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
         </div>
 
         {/* beside the board: what to do now, the hint's suggestion, then the usable actions (or the result) */}
-        <FitScreen w={L.stage.w} h={L.stage.h} aside={<>
+        <FitScreen w={STAGE.w} h={STAGE.h} aside={<>
           <Coach s={s} pending={pending} tipOn={hint} />
           {tip && !s.over && (
             <div className="advice">
@@ -449,33 +452,39 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           </div>
         )}
         </>}>
-        <div className="stage" ref={stageRef} style={{ width: L.stage.w, height: L.stage.h }}>
-          <div className="zone" style={{ left: 0, top: 0, width: MAP.w, height: MAP.h }} />
-          <div className="zone label" style={{ left: L.dig.x, top: L.dig.y - 6, width: L.dig.w, height: L.dig.h }}>
-            <span>{s.dig ? `Digging ${label(s.gc[4])}: up to ${s.dig.depth} cards · ${SUITS[suit(s.gc[4])]} cards are hostile` : <>Zoom in on the middle card to dig here<Fl t={flavour?.dig} /></>}</span>
+        <div className="stage" ref={stageRef} style={{ width: STAGE.w, height: STAGE.h }}>
+          <div className="zcap" style={{ left: SAT.x, width: SAT.w }}>Satchel</div>
+          <div className="zone" style={{ left: SAT.x, top: SAT.y, width: SAT.w, height: MAP.h }} />
+          <div className="zcap" style={{ left: MAP0.x, width: MAP.w }}>
+            {s.dig ? <>Digging {label(s.gc[4])} · up to {s.dig.depth} cards · <span className={isRed(s.gc[4]) ? 'redtxt' : ''}>{SUITS[suit(s.gc[4])]}</span> hostile</> : <>Map · dig the middle card<Fl t={flavour?.dig} /></>}
           </div>
-          <div className="zone label" style={{ left: 0, top: L.handz.y - 6, width: L.stage.w, height: L.handz.h }}>
+          <div className="zone mapzone" style={{ left: MAP0.x, top: MAP0.y, width: MAP.w, height: MAP.h }}>
+            <PlanetMap world={world} />
+            <Compass />
+          </div>
+          <div className="zone label" style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h }}>
             <span>Your hand<Fl t={flavour?.hand} /> ({s.hand.length}/{s.limit}): food, weapons, and ranks that open key cards</span>
           </div>
           <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6 }} />
           {arrows.map(a => (
-            <button key={a.d} className={`arrow ${adv?.kind === 'move' && adv.d === a.d ? 'glow' : ''} ${pending?.kind === 'move' && pending.d === a.d ? 'on' : ''}`} style={a.style} disabled={!ready || !canMove(s)} onClick={() => setPending({ kind: 'move', d: a.d })} title="Move (eat 1 card)">{a.ch}</button>
+            <button key={a.d} className={`arrow ${adv?.kind === 'move' && adv.d === a.d ? 'glow' : ''} ${pending?.kind === 'move' && pending.d === a.d ? 'on' : ''}`} style={a.style} disabled={!ready || !canMove(s)} onClick={() => setPending({ kind: 'move', d: a.d })} aria-label={`Move ${a.name}`} title={`Move ${a.name} (eat 1 card)`}>{a.ch}</button>
           ))}
-          <div className="pilecard back" style={{ left: L.pile.x, top: L.pile.y }}>{s.pile.length}</div>
-          <div className="piletxt" style={{ left: L.pile.x, top: L.pile.y + CH + 4 }}>pile</div>
-          {!s.wait.length && <div className="gap" style={{ position: 'absolute', left: L.wait.x, top: L.wait.y }} />}
-          <div className="piletxt" style={{ left: L.wait.x, top: L.wait.y + CH + 4, width: 90 }}>waiting</div>
-          <div className="zone keyzone" style={{ left: L.keyrow.x - 8, top: L.keyrow.y - 8, width: L.keyrow.w + 16, height: CH + 16 }} />
-          <div className="piletxt" style={{ left: L.keyrow.x, top: L.keyrow.y + CH + 10, width: L.keyrow.w, textAlign: 'left' }}>key row ({keyCount(s)}/{RUN} in a row): safe, never spent</div>
-          <div className="gonebox" style={{ left: L.gone.x, top: L.gone.y + 8, width: L.gone.w }}>
+          <div className="pilecard back" style={{ left: PILE.x, top: PILE.y }}>{s.pile.length}</div>
+          <div className="piletxt" style={{ left: PILE.x, top: PILE.y + CH + 4 }}>pile</div>
+          {!s.wait.length && <div className="gap" style={{ position: 'absolute', left: WAIT.x, top: WAIT.y }} />}
+          <div className="piletxt" style={{ left: WAIT.x, top: WAIT.y + CH + 4, width: 90 }}>waiting</div>
+          <div className="zone keyzone" style={{ left: KEYROW.x - 8, top: KEYROW.y - 8, width: KEYROW.w + 16, height: CH + 16 }} />
+          <div className="piletxt" style={{ left: KEYROW.x, top: KEYROW.y + CH + 10, width: KEYROW.w, textAlign: 'left' }}>key row ({keyCount(s)}/{RUN} in a row): safe, never spent</div>
+          <div className="gonebox" style={{ left: GONE.x, top: GONE.y + 8, width: GONE.w }}>
             <div className="muted">gone for good ({s.gone.length})<Fl t={flavour?.gone} /></div>
             {[0, 1, 2, 3].map(su => goneSorted.some(c => suit(c) === su) && (
               <div key={su} className={`gonerow ${su === 1 || su === 2 ? 'red' : ''}`}>{SUITS[su]} {goneSorted.filter(c => suit(c) === su).map(c => rankLabel(rank(c))).join(' ')}</div>
             ))}
           </div>
           <AnimatePresence custom={{ dest, dir }}>
-            {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} pile={L.pile} />)}
+            {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
+          {dealt && <Explorer world={world} left={here.x + 44} top={here.y - 14} step={s.gc[4]} digging={!!s.dig} />}
         </div>
         </FitScreen>
       </div>
