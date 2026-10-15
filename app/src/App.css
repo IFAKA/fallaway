@@ -148,6 +148,10 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .acard.clickable:hover .front { filter: brightness(1.08); }
 .acard.selected .front { outline: 3px solid #ffd36b; box-shadow: 0 0 12px #ffd36b; }
 .acard.glow .front { outline: 3px solid #ffd36b; box-shadow: 0 0 14px #ffd36b; }
+/* a hostile card being hit in a fight (Practice.tsx STRIKE): a red flash when your card reaches it */
+.acard.hit .front { animation: hitflash .35s .45s ease-out; }
+@keyframes hitflash { 0%, 100% { box-shadow: none; filter: none; } 30% { box-shadow: 0 0 0 4px #e8434e, 0 0 18px #e8434e; filter: brightness(1.15) saturate(1.4); } }
+@media (prefers-reduced-motion: reduce) { .acard.hit .front { animation: none; } }
 .acard.dim { opacity: .55 !important; }
 .acard .flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: none; }
 /* region art (regionArt.tsx): the lower part of a face-up map region, below the corner index, which it never covers.

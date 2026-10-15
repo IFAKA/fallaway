@@ -81,6 +81,10 @@ const HERO = { left: MAP.w - 160, top: MAP.h - 180, h: 270 }
 /** how deep you have dug and the loot so far: a panel, with the loot fanned out under it */
 const LOOT = { x: 12, y: 300, w: 146 }
 const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? Math.min(24, (LOOT.w - CW) / (n - 1)) : 0), y: MAP0.y + LOOT.y })
+/** a fight plays before it happens: your card flies into the hostile card, which shakes as it is hit */
+const STRIKE = { fly: 0.45, shake: 0.35 }
+/** fleeing plays before it happens: the explorer runs off the side of the map, then the camera rises out */
+const RUN_OFF = 0.6
 /** how far you walk forward into the biome on each card you turn up (the field streams toward you this far) */
 const STRIDE = 75
 /** the board swaps to the biome (and back to the map) at the end of the camera's dive, under the colour wash (biome.tsx) */
@@ -97,6 +101,8 @@ interface Placed {
   fog?: boolean
   /** a map region hidden while you dig (you are inside the biome) */
   hidden?: boolean
+  /** a hostile card being hit: it shakes and flashes once your card reaches it */
+  hit?: boolean
   /** seconds before the card comes into sight or fades out */
   delay?: number
 }
@@ -107,9 +113,9 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   const onClick = present && !p.hidden ? p.onClick : undefined
   return (
     <motion.div
-      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${onClick ? 'clickable' : ''}`}
+      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${p.hit ? 'hit' : ''} ${onClick ? 'clickable' : ''}`}
       initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), opacity: 0 }}
-      animate={{ x: p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: 1 }}
+      animate={{ x: p.hit ? [p.x, p.x - 7, p.x + 7, p.x - 4, p.x + 4, p.x] : p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: 1 }}
       variants={{
         exit: (c: { dest: (id: number) => { x: number; y: number } | null; dir: number | null }) => {
           // a card that scrolls off the map keeps sliding the way the window moves; spent cards fly to the "gone" pile
@@ -119,7 +125,9 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
         },
       }}
       exit="exit"
-      transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1], delay: p.delay }}
+      transition={p.hit
+        ? { x: { delay: STRIKE.fly, duration: STRIKE.shake } }
+        : { duration: 0.6, ease: [0.4, 0, 0.2, 1], delay: p.delay }}
       onClick={onClick}
     >
       {/* an explored region lies sideways, as on the real table; scaled so two turned neighbours don't overlap */}
@@ -256,6 +264,13 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const [intro, setIntro] = useState(() => { try { return !localStorage.getItem(SEEN) && !urlSeed() } catch { return false } })
   const stageRef = useRef<HTMLDivElement>(null)
   const [dir, setDir] = useState<number | null>(null)
+  /** a fight or a flee playing out before it is applied (see strike, runAway); input waits for it, then `done` applies it */
+  const [act, setAct] = useState<({ kind: 'fight'; card: number } | { kind: 'flee' }) & { seconds: number; done: () => void } | null>(null)
+  useEffect(() => {
+    if (!act) return
+    const t = window.setTimeout(() => { setAct(null); act.done() }, act.seconds * 1000)
+    return () => clearTimeout(t)
+  }, [act])
   const s = history[history.length - 1]
 
   useEffect(() => { try { localStorage.setItem(saveKey, JSON.stringify({ seed: s.seed, history: history.slice(-150), meta })) } catch { /* storage full: ignore */ } }, [saveKey, history, s.seed, meta])
@@ -277,7 +292,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const reset = (seed: number, ranked = true, daily: string | null = null) => { setDir(null); setHistory([newGame(seed)]); setPending(null); setMeta(newMeta(seed, ranked, daily)); setCopied(false) }
   const newDeal = () => reset(freshSeed())
   const replay = () => reset(s.seed, false, null)
-  const undo = () => { if (history.length > 1) { setDir(null); setHistory(h => h.slice(0, -1)); setPending(null); setMeta(m => ({ ...m, ranked: false })) } }
+  const undo = () => { if (history.length > 1 && !act) { setDir(null); setHistory(h => h.slice(0, -1)); setPending(null); setMeta(m => ({ ...m, ranked: false })) } }
   const share = () => {
     const txt = `Fallaway daily ${meta.daily}: ${s.over === 'win' ? 'WON' : `lost with ${keyCount(s)}/${RUN} of my key`} in ${s.steps} actions. ${location.origin}${location.pathname}`
     navigator.clipboard?.writeText(txt).then(() => setCopied(true), () => setCopied(false))
@@ -295,10 +310,20 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const pickSet = hostile ? fightSet : found ? new Set(takers(s)) : null // hand cards you may click during a dig
   const { want, vis } = lockWant(s, visibleCards(s))
 
+  /** play a fight or a flee for `seconds`, then apply `next` (at once with reduced motion) */
+  const playThen = (a: { kind: 'fight'; card: number } | { kind: 'flee' }, seconds: number, next: () => State | null) => {
+    if (act) return
+    if (reducedMotion) return push(next())
+    setAct({ ...a, seconds, done: () => push(next()) })
+  }
+  const strike = (i: number) => { if (canFight(s, i)) playThen({ kind: 'fight', card: s.hand[i] }, STRIKE.fly + STRIKE.shake + 0.1, () => fight(s, i)) }
+  const runAway = () => { if (canFlee(s)) playThen({ kind: 'flee' }, RUN_OFF, () => flee(s)) }
+  const doAdvice = (a: Advice) => a.kind === 'fight' ? strike(a.i) : a.kind === 'flee' ? runAway() : push(applyAdvice(s, a), a.kind === 'move' ? a.d : null)
+
   const clickHand = (i: number) => {
-    if (s.over) return
+    if (s.over || act) return
     if (over) return push(discard(s, i))
-    if (hostile) return canFight(s, i) ? push(fight(s, i)) : undefined
+    if (hostile) return strike(i)
     if (found) return canTake(s, i) ? push(take(s, i)) : undefined
     if (pending?.kind === 'move') return push(move(s, pending.d, i), pending.d)
     if (pending?.kind === 'scout') return push(scout(s, [i]))
@@ -336,14 +361,16 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     })
   })
   if (s.dig) {
-    // the first card turns up as you arrive in the biome
-    const delay = s.dig.flips <= 1 ? ARRIVE : 0, d = s.dig
+    // the first card turns up as you arrive in the biome (the dig began with this state)
+    const delay = !history[history.length - 2]?.dig ? ARRIVE : 0, d = s.dig
     // across from the explorer: the hostile card or key card waiting for you, else the loot you just turned up
-    const foes = d.hostile >= 0 || d.found >= 0 ? [d.hostile, d.found].filter(c => c >= 0) : d.loot.slice(-1)
+    // (a hostile card you beat joins the loot at once: it is the region's suit, which loot never is)
+    const last = d.loot[d.loot.length - 1]
+    const foes = d.hostile >= 0 || d.found >= 0 ? [d.hostile, d.found].filter(c => c >= 0) : last !== undefined && suit(last) !== suit(s.gc[4]) ? [last] : []
     const loot = d.loot.filter(c => !foes.includes(c))
     loot.forEach((c, j) => placed.push({ id: c, ...lootPos(j, loot.length), zone: 'dig', dir, down: false, delay }))
     foes.forEach((c, j) => placed.push({
-      id: c, x: FOE_CARD.x + j * (CW + 8), y: FOE_CARD.y, zone: 'dig', dir, down: false, glow: c === d.hostile || c === d.found, delay,
+      id: c, x: FOE_CARD.x + j * (CW + 8), y: FOE_CARD.y, zone: 'dig', dir, down: false, glow: c === d.hostile || c === d.found, delay, hit: act?.kind === 'fight' && c === d.hostile,
       tag: c === d.hostile ? 'HOSTILE' : c === d.found ? 'KEY' : 'loot',
     }))
   }
@@ -352,8 +379,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   handSorted.forEach(({ c, i }, k) => {
     const opens = want.has(rank(c)) && vis.has(rank(c))
     const guard = s.dig && suit(c) === suit(s.gc[4])
+    // the card you fight with flies up into the hostile card
+    const weapon = act?.kind === 'fight' && act.card === c
     placed.push({
-      id: c, ...handPos(k, handSorted.length), zone: 'hand', dir, down: false,
+      id: c, ...(weapon ? { x: FOE_CARD.x + 14, y: FOE_CARD.y + 24 } : handPos(k, handSorted.length)), zone: 'hand', dir, down: false,
       selected: false, glow: hlHand.has(i) || (!!pickSet && pickSet.has(i) && !hint), dim: !!pickSet && !pickSet.has(i),
       tag: guard ? `defends ${SUITS[suit(c)]}` : opens ? '🔑' : undefined, tagCls: guard ? 't-guard' : undefined,
       onClick: handClickable && (!pickSet || pickSet.has(i)) ? () => clickHand(i) : undefined,
@@ -383,7 +412,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   // keyboard: arrows move, 1-9/0 pick a hand card (left to right), Space/Enter dig or flip, S stop, F flee, L leave a key card, Z zoom out, U undo, N new game, Esc cancel
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || intro) return
+      if (e.metaKey || e.ctrlKey || e.altKey || intro || act) return
       const k = e.key.toLowerCase()
       const arrow = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k)
       let done = true
@@ -395,7 +424,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
         else if (s.over && k === 'enter') newDeal()
       }
       else if (k === 's' && canStop(s)) push(stop(s))
-      else if (k === 'f' && canFlee(s)) push(flee(s))
+      else if (k === 'f' && canFlee(s)) runAway()
       else if (k === 'l' && canLeave(s)) push(leave(s))
       else if (k === 'z' && ready && canScout(s)) zoomOut()
       else if (k === 'u') undo()
@@ -453,7 +482,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           {tip && !s.over && (
             <div className="advice">
               <b>Suggestion:</b> {tip.text}
-              <button className="small" onClick={() => adv && push(applyAdvice(s, adv), adv.kind === 'move' ? adv.d : null)}>Do it</button>
+              <button className="small" onClick={() => adv && doAdvice(adv)}>Do it</button>
             </div>
           )}
           {s.over ? (
@@ -473,7 +502,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           </div>
         ) : (
           // only what you can do right now
-          <div className="actions">
+          <div className="actions" inert={!!act}>
             {!s.dig && ready && <>
               {canDig(s) && <button className={`big ${adv?.kind === 'dig' ? 'glow' : ''}`} onClick={() => push(dig(s))}>Zoom IN <small>flip the first card</small></button>}
               {canClaim(s) && <button className={`big ${adv?.kind === 'claim' ? 'glow' : ''}`} onClick={() => push(claim(s))}>Claim key card</button>}
@@ -483,7 +512,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             {s.dig && <>
               {canFlip(s) && <button className={`big ${adv?.kind === 'flip' ? 'glow' : ''}`} onClick={() => push(flip(s))}>Flip next <small>{s.dig.depth - s.dig.flips} left</small></button>}
               {canStop(s) && <button className={adv?.kind === 'stop' ? 'glow' : ''} onClick={() => push(stop(s))}>Stop <small>keep the loot</small></button>}
-              {hostile && canFlee(s) && <button className={`danger ${fightSet.size ? '' : 'urgent'} ${adv?.kind === 'flee' ? 'glow' : ''}`} onClick={() => push(flee(s))}>Flee <small>lose the loot + 1 random card</small></button>}
+              {hostile && canFlee(s) && <button className={`danger ${fightSet.size ? '' : 'urgent'} ${adv?.kind === 'flee' ? 'glow' : ''}`} onClick={runAway}>Flee <small>lose the loot + 1 random card</small></button>}
               {found && canLeave(s) && <button className={`big ${adv?.kind === 'leave' ? 'glow' : ''}`} onClick={() => push(leave(s))}>Leave it waiting</button>}
             </>}
             {pending && <button onClick={() => setPending(null)}>Cancel <small>Esc</small></button>}
@@ -501,7 +530,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             <AnimatePresence>
               {biome !== null && (
                 <motion.div key={biome} className="mapbiome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.2, delay: ARRIVE } }} exit={{ opacity: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }}>
-                  <Panorama world={world} suit={biome} walked={s.dig ? s.dig.flips * STRIDE : 0} field />
+                  <Panorama world={world} suit={biome} walked={s.dig ? s.steps * STRIDE : 0} field />
                   {s.dig && <>
                     {/* the one rule of this biome, where you look first: which suit attacks (how to beat it is beside the board) */}
                     <div className={`hostile-sign ${isRed(s.gc[4]) ? 'red' : ''}`} style={{ left: 10, top: 8 }} aria-hidden="true">
@@ -511,8 +540,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                       <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} · Loot <b>{s.dig.loot.length}</b></span>
                       <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
                     </div>
-                    {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on for every card you turn up while the ground scrolls past */}
-                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={`dig ${s.dig.flips}`} toward={[0, 0]} delay={0} />
+                    {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up or beat, and runs off the side when you flee */}
+                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act?.kind === 'flee' ? 'run' : `dig ${s.steps}`} toward={[0, 0]} delay={0} run={act?.kind === 'flee'} />
                   </>}
                 </motion.div>
               )}

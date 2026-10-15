@@ -119,8 +119,10 @@ export function ExplorerIcon({ world, size = 22 }: { world: WorldId; size?: numb
  * of the way there. On the map that is toward the next region while the map slides under it; inside a biome (see
  * Practice) it walks along the trail while the ground scrolls past.
  */
-export function Explorer({ world, left, top, step, toward, delay, height = 41, back = false }: {
+export function Explorer({ world, left, top, step, toward, delay, height = 41, back = false, run = false }: {
   world: WorldId; left: number; top: number; step: number | string; toward: readonly number[] | null; delay: number; height?: number; back?: boolean
+  /** fleeing: it leans and runs off across the field to the left (seen from behind) */
+  run?: boolean
 }) {
   const reduce = useReducedMotion()
   const walking = !!toward && !reduce
@@ -130,8 +132,8 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
       className="explorer"
       style={{ left, top }}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3, ease: 'easeOut', delay }}
+      animate={{ opacity: 1, x: run ? -height * 1.3 : 0 }}
+      transition={{ opacity: { duration: 0.3, ease: 'easeOut', delay }, x: { duration: 0.6, ease: 'easeIn' } }}
       role="img"
       aria-label={`You are here (the ${LOOKS[world].name})`}
     >
@@ -141,10 +143,12 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
         // from behind it walks away from you: two steps, a bob on each and the shoulders swaying side to side;
         // otherwise it strides toward the next region
         style={back ? { originX: 0.5, originY: 1 } : undefined}
-        animate={!walking ? undefined : back
+        animate={!walking ? undefined : run
+          ? { y: [0, -9, 0, -9, 0, -9, 0], rotate: -14 }
+          : back
           ? { y: [0, -7, 0, -7, 0], rotate: [0, -3, 0, 3, 0], x: [0, -3, 0, 3, 0] }
           : { x: [0, dx * 0.35, 0], y: [0, dy * 0.35 - 5, dy * 0.2, 0] }}
-        transition={{ duration: back ? 0.8 : 0.6, ease: 'easeInOut', delay }}
+        transition={{ duration: back && !run ? 0.8 : 0.6, ease: run ? 'linear' : 'easeInOut', delay }}
       >
         <svg viewBox={`0 0 ${VW} ${VH}`} width={(height * VW) / VH} height={height} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
           {/* from behind it bobs as it walks; swinging arms that close up would look like flapping */}
