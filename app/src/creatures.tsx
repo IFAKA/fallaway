@@ -716,8 +716,10 @@ const EASE_OUT = [0.23, 1, 0.32, 1] as const
  * `dead`: beaten, it goes over onto its back on the spot, legs up, and lies there greyed until your next action, then fades (its exit).
  * `flee`: it charges at you as you run.
  */
-export function Creature({ world, card, left, bottom, delay, action, seconds = 0, dead = false }: {
+export function Creature({ world, card, left, bottom, height, delay, action, seconds = 0, dead = false }: {
   world: WorldId; card: number; left: number; bottom: number; delay: number; action?: 'fight' | 'flee'; seconds?: number; dead?: boolean
+  /** how tall it stands (as tall as its card); by default by the card's rank (SIZE) */
+  height?: number
 }) {
   const reduce = useReducedMotion()
   // the drawing's top and bottom (viewBox units), so a beaten creature turned over lands with its back on its feet's line
@@ -728,7 +730,7 @@ export function Creature({ world, card, left, bottom, delay, action, seconds = 0
   }
   const kind = CREATURES[world]?.[suit(card)][sizeOf(card)]
   if (!kind) return null
-  const h = SIZE[sizeOf(card)]
+  const h = height ?? SIZE[sizeOf(card)]
   // turned half over about the middle of its 60-unit square, its top comes to 60 - top: move it down to the old bottom
   const land = ((art.bottom + art.top - 60) * h) / 60
   return (

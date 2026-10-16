@@ -110,7 +110,7 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
   background-image: radial-gradient(ellipse 9px 3px, #00000024 0 60%, transparent 100%); background-size: 46px 30px;
   transition: background-position-y .8s ease-in-out; }
 /* the dig seen over the explorer's shoulder (Practice.tsx): how deep you have dug and the loot so far, in one panel */
-.mapbiome .dbar { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 5px 8px 6px; border-radius: 8px; background: color-mix(in srgb, var(--felt) 88%, transparent); border-bottom: 3px solid var(--title); color: #fff; font-size: 12px; line-height: 1.1; box-shadow: 0 2px 6px #0005; }
+.mapbiome .dbar { position: absolute; display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 8px; background: color-mix(in srgb, var(--felt) 88%, transparent); border-bottom: 3px solid var(--title); color: #fff; font-size: 12px; line-height: 1.1; box-shadow: 0 2px 6px #0005; }
 .mapbiome .dbar b { color: var(--title); }
 .mapbiome .hostile-sign { position: absolute; display: flex; align-items: center; gap: 6px; padding: 2px 10px 2px 6px; border-radius: 10px; background: #fffaf0; color: #b8322a; border: 2px solid #b8322a; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; box-shadow: 0 2px 6px #0005; }
 .mapbiome .hostile-sign .big-suit { font-size: 26px; line-height: 1; color: #2a2238; }
@@ -118,6 +118,20 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .mapbiome .pips { display: flex; gap: 4px; }
 .mapbiome .pips i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; background: transparent; box-sizing: border-box; }
 .mapbiome .pips i.on { background: var(--title); border-color: var(--title); }
+/* the dig's cards still to turn: a small face-down stack on the trail, by the horizon */
+.mapbiome .trail { position: absolute; display: flex; align-items: flex-end; transform: translateX(-50%); }
+.mapbiome .trail i { width: 26px; height: 36px; margin-left: -18px; border-radius: 3px; box-sizing: border-box; background: var(--card-back); border: 1.5px solid #fff; box-shadow: 0 1px 3px #0006; }
+.mapbiome .trail i:first-child { margin-left: 0; }
+.mapbiome .trail span { margin-left: 6px; padding: 1px 6px; border-radius: 8px; background: #0006; color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+/* the loot so far: a tray under its cards, headed with what they are and footed with what becomes of them */
+.mapbiome .loottray { position: absolute; box-sizing: border-box; border-radius: 12px; background: color-mix(in srgb, var(--felt) 72%, transparent); border: 2px solid var(--title); box-shadow: 0 3px 10px #0005; color: #fff; }
+.loottray-head { position: absolute; top: 5px; left: 10px; right: 8px; font-size: 13px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.loottray-head b { color: var(--title); }
+.loottray-foot { position: absolute; bottom: 5px; left: 10px; font-size: 12px; opacity: .9; }
+.loottray-empty { position: absolute; top: 50%; left: 0; right: 0; text-align: center; font-size: 12px; opacity: .6; transform: translateY(-50%); }
+/* a creature is up: the loot is at stake */
+.mapbiome .loottray.danger { border-color: #ff6b5f; }
+.loottray.danger .loottray-foot { color: #ffb3ab; font-weight: 700; opacity: 1; }
 .stage .compass { position: absolute; right: 4px; bottom: 4px; color: var(--chart-ink); }
 /* unexplored regions lie under fog */
 .acard.fog .backside::after { content: ''; position: absolute; inset: 0; border-radius: 5px; background: radial-gradient(ellipse at 30% 35%, #fff5 0, transparent 60%), radial-gradient(ellipse at 70% 75%, #fff4 0, transparent 55%); }

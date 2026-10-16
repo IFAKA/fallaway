@@ -89,13 +89,20 @@ const STEP_CELL = [1, 7, 3, 5]
 // stands on the ground ahead, up by the horizon. How deep you have dug and the loot so far sit in the bottom-left corner.
 // Map-zone coordinates (add MAP0 for the stage).
 /** the turned-up card, up ahead on the ground */
-const FOE_CARD = { x: MAP0.x + 34, y: MAP0.y + 90 }
+const DK = 1.5
+const DCW = CW * DK, DCH = CH * DK
+/** the encounter, in the middle of the field: the card as drawn (DK times a card), and the creature beside it, as tall */
+const MEET = { x: Math.round((MAP_W - DCW - 12 - DCH) / 2), y: 186, gap: 12 }
+/** where the turned-up card is placed: it scales about its middle, so its unscaled box sits inside MEET */
+const FOE_CARD = { x: MAP0.x + MEET.x + (DCW - CW) / 2, y: MAP0.y + MEET.y + (DCH - CH) / 2 }
+/** the dig's cards still to turn, face down on the trail by the horizon behind the encounter */
+const TRAIL = { y: 128, max: 6 }
 /** the explorer from behind: the whole figure, `h` tall, placed so only its head and shoulders show above the map's edge */
 /** where the card you fight with lands, from the hostile card's corner (the creature stands clear of it) */
 const WEAPON = { x: 14, y: 24 }
 const HERO = { left: MAP.w - 160, top: MAP.h - 180, h: 270 }
 /** how deep you have dug and the loot so far: a panel, with the loot fanned out under it */
-const LOOT = { x: 12, y: MAP.h - 104, w: 146 }
+const LOOT = { x: 16, y: MAP.h - 122, w: 146 }
 /** the usable dig actions: a dock on the ground at the bottom, between the loot (left) and the explorer (right) */
 const DIGBAR = { x: LOOT.x + LOOT.w + 22, w: MAP.w - (LOOT.x + LOOT.w + 22) - 176, bottom: 14 }
 const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? Math.min(24, (LOOT.w - CW) / (n - 1)) : 0), y: MAP0.y + LOOT.y })
@@ -142,8 +149,8 @@ interface Placed {
   stash?: number
   /** seconds before the card comes into sight or fades out */
   delay?: number
-  /** drawn at map size (MK) */
-  big?: boolean
+  /** drawn this many times a card's size (map regions MK, the card ahead DK) */
+  k?: number
 }
 function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   // a card on its way out (spent, claimed, fallen off) keeps its old props while it animates: it must not be clickable,
@@ -153,12 +160,12 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   return (
     <motion.div
       className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${p.hit ? 'hit' : ''} ${onClick ? 'clickable' : ''}`}
-      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), ...(p.big ? { scale: MK } : {}), opacity: 0 }}
+      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), ...(p.k ? { scale: p.k * (p.zone === 'dig' ? 0.85 : 1) } : {}), opacity: 0 }}
       animate={p.stash === -1
         ? { x: INTO_PACK.x[1], y: INTO_PACK.y[1], scale: INTO_PACK.scale[1], opacity: 0 }
         : p.stash !== undefined
-        ? { x: [p.x, ...INTO_PACK.x], y: [p.y, ...INTO_PACK.y], scale: [1, ...INTO_PACK.scale], opacity: [1, 1, 1, 0] }
-        : { x: p.hit ? [p.x, p.x - 7, p.x + 7, p.x - 4, p.x + 4, p.x] : p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: p.big ? MK : 1 }}
+        ? { x: [p.x, ...INTO_PACK.x], y: [p.y, ...INTO_PACK.y], scale: [p.k ?? 1, ...INTO_PACK.scale], opacity: [1, 1, 1, 0] }
+        : { x: p.hit ? [p.x, p.x - 7, p.x + 7, p.x - 4, p.x + 4, p.x] : p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: p.k ?? 1 }}
       variants={{
         exit: (c: { dest: (id: number) => { x: number; y: number } | null; dir: number | null }) => {
           // a card that scrolls off the map keeps sliding the way the window moves; spent cards fly to the "gone" pile
@@ -446,7 +453,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
       : isKeyCard(s, c) ? `🔒 any ${rankLabel(rank(c))}${s.hand.some(x => rank(x) === rank(c)) ? ' ✓' : ''}`
       : s.gdone[i] ? '✓' : `dig ${depthOf(c)} · ${danger}`
     placed.push({
-      id: c, x, y, zone: 'map', big: true, dir, down: !up, region, fog: !up, hidden: !!s.dig, dim: s.gdone[i] > 0 && !s.dig, delay: arriving ? ARRIVE : 0, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
+      id: c, x, y, zone: 'map', k: MK, dir, down: !up, region, fog: !up, hidden: !!s.dig, dim: s.gdone[i] > 0 && !s.dig, delay: arriving ? ARRIVE : 0, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
       glow: ((adv?.kind === 'dig' || adv?.kind === 'finish' || adv?.kind === 'claim') && i === 4) || (adv?.kind === 'move' && STEP_CELL[adv.d] === i),
       selected: pending?.kind === 'move' && STEP_CELL[pending.d] === i,
       tag, onClick: clickable(i) ? () => clickCell(i) : undefined,
@@ -464,7 +471,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     const stash = (c: number) => act?.kind === 'walk' ? -1 : act?.kind === 'stash' ? [...loot].reverse().concat(foes).indexOf(c) : undefined
     loot.forEach((c, j) => placed.push({ id: c, ...lootPos(j, loot.length), zone: 'dig', dir, down: false, delay, stash: stash(c) }))
     foes.forEach((c, j) => placed.push({ stash: stash(c),
-      id: c, x: FOE_CARD.x + j * (CW + 8), y: FOE_CARD.y, zone: 'dig', dir, down: false, glow: c === d.hostile || c === d.found, delay, hit: act?.kind === 'fight' && c === d.hostile,
+      id: c, x: FOE_CARD.x + j * (DCW + 8), y: FOE_CARD.y, zone: 'dig', k: DK, dir, down: false, glow: c === d.hostile || c === d.found, delay, hit: act?.kind === 'fight' && c === d.hostile,
       tag: c === d.hostile ? 'HOSTILE' : c === d.found ? 'KEY' : 'loot',
     }))
   }
@@ -485,6 +492,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const dest = (id: number) => (s.gone.includes(id) ? { x: GONE.x + 120, y: GONE.y } : s.keys.includes(id) ? { x: KEYROW.x + 120, y: KEYROW.y } : s.hand.includes(id) ? { x: 300, y: HANDZ.y + 30 } : null)
 
   const here = cellPos(4)
+  // an explored middle region lies sideways (StageCard): the explorer stands on that card's corner, not the upright one's
+  const heresTurned = s.gup[4] && s.gdone[4] > 0
   // entering a biome: digging the middle region dives into its card (worlds with biome colours, see biome.tsx)
   const biome = s.dig ? suit(s.gc[4]) : null
   // the explorer walks one stride per card turned up, not after a fight: beating a creature leaves you where you stand,
@@ -492,8 +501,6 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const walks = s.steps - (s.dig ? s.dig.loot.filter(c => suit(c) === biome).length : 0)
   // the creature you just beat, lying beaten beside the card until your next action: right after a fight the beaten
   // hostile card is the last of the loot (any flip after it adds loot, a new hostile or a key card)
-  // an explored middle region lies sideways (StageCard): the explorer stands on that card's corner, not the upright one's
-  const heresTurned = s.gup[4] && s.gdone[4] > 0
   const lastLoot = s.dig && s.dig.hostile < 0 && s.dig.found < 0 ? s.dig.loot.at(-1) ?? -1 : -1
   const beaten = lastLoot >= 0 && suit(lastLoot) === biome ? lastLoot : -1
   /** the middle card on screen, where the camera dives in and rises out; the stage may be scaled down to fit (see Fit) */
@@ -602,17 +609,31 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                     <div className={`hostile-sign ${isRed(s.gc[4]) ? 'red' : ''}`} style={{ left: 10, top: 8 }} aria-hidden="true">
                       <span className="big-suit">{SUITS[biome]}</span> hostile
                     </div>
-                    <div className="dbar" style={{ left: LOOT.x - 4, top: LOOT.y - 50, width: LOOT.w + 8 }} title="Key cards you turn up don't count toward the dig.">
-                      <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} · Loot <b>{s.dig.loot.length}</b></span>
+                    {/* how deep you have dug, up by the biome's sign */}
+                    <div className="dbar" style={{ left: 150, top: 10 }} title="Key cards you turn up don't count toward the dig.">
+                      <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth}</span>
                       <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
+                    </div>
+                    {/* the cards still to turn, face down on the trail ahead */}
+                    {s.dig.depth > s.dig.flips && (
+                      <div className="trail" style={{ left: MAP.w / 2, top: TRAIL.y }} title={`${s.dig.depth - s.dig.flips} more to dig`}>
+                        {Array.from({ length: Math.min(TRAIL.max, s.dig.depth - s.dig.flips) }, (_, k) => <i key={k} />)}
+                        <span>{s.dig.depth - s.dig.flips} left</span>
+                      </div>
+                    )}
+                    {/* the loot so far, in its own tray under the cards: what it is, and what becomes of it */}
+                    <div className={`loottray ${hostile ? 'danger' : ''}`} style={{ left: LOOT.x - 8, top: LOOT.y - 30, width: LOOT.w + 16, height: CH + 58 }}
+                      title="Cards you dug up. Stop to keep them; fleeing loses them.">
+                      <div className="loottray-head"><span aria-hidden="true">🎒</span> Loot · <b>{s.dig.loot.length}</b> card{s.dig.loot.length === 1 ? '' : 's'}</div>
+                      {!s.dig.loot.length && <div className="loottray-empty">nothing yet</div>}
+                      <div className="loottray-foot">{hostile ? 'lost if you flee' : 'yours if you stop'}</div>
                     </div>
                     {/* the hostile card's creature, beside the card: it comes out from behind it once the card is up,
                         fights back when you fight, lies beaten until your next action, and charges at you when you flee */}
                     <AnimatePresence>
                       {(s.dig.hostile >= 0 || beaten >= 0) && (
                         <Creature key={s.dig.hostile >= 0 ? s.dig.hostile : beaten} world={world} card={s.dig.hostile >= 0 ? s.dig.hostile : beaten} dead={s.dig.hostile < 0}
-                          left={FOE_CARD.x - MAP0.x + Math.max(Math.max(0, [s.dig.hostile, s.dig.found].filter(c => c >= 0).length - 1) * (CW + 8) + CW + 2, WEAPON.x + CW + 6)}
-                          bottom={FOE_CARD.y - MAP0.y + CH + 3} delay={(arriving ? ARRIVE : 0) + 0.4}
+                          left={MEET.x + DCW + MEET.gap} bottom={MEET.y + DCH} height={DCH} delay={(arriving ? ARRIVE : 0) + 0.4}
                           action={act?.kind === 'fight' || act?.kind === 'flee' ? act.kind : undefined} seconds={act?.seconds} />
                       )}
                     </AnimatePresence>
