@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { WorldId } from './menu/worlds'
 import { FLAP } from './menu/transition'
-import { PACK_MOUTH } from './explorerPack'
+import { PACK_MOUTH, PACKS } from './explorerPack'
 
 // The explorer: "you are here" on the map, one little character per world, standing on the middle region's top-right
 // corner (clear of the rank + suit corner and the dig tag). Flavour only. Chibi style, like the hostile creatures
@@ -46,7 +46,7 @@ const LOOKS: Record<WorldId, Look> = {
   moon: {
     name: 'astronaut',
     suit: '#eef0f8', arms: '#e2e5f2', legs: '#e2e5f2', boots: '#8d93bf',
-    pack: { bag: '#c9cce0', flap: '#a9aecb', pocket: '#e85d5d' },
+    pack: PACKS.moon,
     front: <><rect x={11.5} y={22.5} width={5} height={3} rx={0.8} fill="#e85d5d" /><rect x={11.5} y={26.5} width={5} height={1.4} rx={0.6} fill="#7fc4ff" /></>,
     head: <>
       <path d="M20 4.5L22.5 0.8" fill="none" /><circle cx={22.6} cy={0.9} r={1.2} fill="#e85d5d" />
@@ -64,7 +64,7 @@ const LOOKS: Record<WorldId, Look> = {
   earth: {
     name: 'hiker',
     suit: '#5c8a3e', arms: '#5c8a3e', legs: '#8a6a44', boots: '#5a3a1e',
-    pack: { bag: '#a0703c', flap: '#7a4f24', pocket: '#8a5e30' },
+    pack: PACKS.earth,
     front: <><path d="M9.4 20.6q4.6 2.6 9.2 0l-.6 2.4q-4 1.6 -8 0z" fill="#d6453b" /><rect x={8.6} y={28.4} width={10.8} height={1.6} fill="#6e4520" /></>,
     head: <>
       <circle cx={14} cy={12.4} r={9.6} fill={SKIN} /><Shade cx={14} cy={12.4} rx={9.6} ry={9.6} />
@@ -85,7 +85,7 @@ const LOOKS: Record<WorldId, Look> = {
   candy: {
     name: 'candy kid',
     suit: '#7fd9c0', arms: SKIN, legs: '#7fd9c0', boots: '#c93a76',
-    pack: { bag: '#ff9ccf', flap: '#c93a76', pocket: '#fff3b0' },
+    pack: PACKS.candy,
     front: <><rect x={10} y={22} width={8} height={6.4} rx={1.5} fill="#5fc4a8" /><circle {...NO} cx={11.6} cy={22.9} r={0.8} fill="#fff" /><circle {...NO} cx={16.4} cy={22.9} r={0.8} fill="#fff" /></>,
     head: <>
       <circle cx={14} cy={12.6} r={9.4} fill={SKIN} /><Shade cx={14} cy={12.6} rx={9.4} ry={9.4} />

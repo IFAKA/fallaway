@@ -17,7 +17,7 @@ import { Ending } from './ending'
 import { reducedMotion } from './menu/reducedMotion'
 import { DIVE_SECONDS, FLAP } from './menu/transition'
 import { Explorer, ExplorerIcon } from './explorer'
-import { PACK_MOUTH } from './explorerPack'
+import { PACK_MOUTH, PACKS } from './explorerPack'
 import { Creature } from './creatures'
 import { PlanetMap } from './planetMap'
 import { B, FitScreen, HowToPlay } from './shared'
@@ -73,7 +73,8 @@ const KEYROW = { x: 18, y: CAP + 20, w: 284 }
 const PILE = { x: 18, y: CAP + 154 }
 const WAIT = { x: 102, y: CAP + 154 }
 const GONE = { x: 18, y: CAP + 268, w: 284 }
-const HANDZ = { y: CAP + MAP.h + 14, h: 140 }
+// the hand is the explorer's backpack: a flap along the top (its name and what it holds), the cards in pockets below
+const HANDZ = { y: CAP + MAP.h + 14, h: 158, flap: 46 }
 const STAGE = { w: MAP0.x + MAP.w + 2, h: HANDZ.y + HANDZ.h + 6 }
 // where a new row/column enters from for each move direction (up, down, left, right)
 const SLIDE = [[0, -MAP.py], [0, MAP.py], [-MAP.px, 0], [MAP.px, 0]]
@@ -133,7 +134,7 @@ const STRIDE = 75
 const ARRIVE = reducedMotion ? 0 : DIVE_SECONDS
 /** hand cards are drawn this much bigger while the hand is over its limit */
 const OVER_K = 1.06
-const handPos = (k: number, n: number) => ({ x: 18 + k * (n > 1 ? Math.min(76, (STAGE.w - 36 - CW) / (n - 1)) : 76), y: HANDZ.y + 30 })
+const handPos = (k: number, n: number) => ({ x: 18 + k * (n > 1 ? Math.min(76, (STAGE.w - 36 - CW) / (n - 1)) : 76), y: HANDZ.y + HANDZ.flap })
 const keyPos = (k: number, n: number) => ({ x: KEYROW.x + k * (n > 1 ? Math.min(68, (KEYROW.w - CW) / (n - 1)) : 68), y: KEYROW.y })
 
 interface Placed {
@@ -497,7 +498,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
       onClick: handClickable && (!pickSet || pickSet.has(i)) ? () => clickHand(i) : undefined,
     })
   })
-  const dest = (id: number) => (s.gone.includes(id) ? { x: GONE.x + 120, y: GONE.y } : s.keys.includes(id) ? { x: KEYROW.x + 120, y: KEYROW.y } : s.hand.includes(id) ? { x: 300, y: HANDZ.y + 30 } : null)
+  const dest = (id: number) => (s.gone.includes(id) ? { x: GONE.x + 120, y: GONE.y } : s.keys.includes(id) ? { x: KEYROW.x + 120, y: KEYROW.y } : s.hand.includes(id) ? { x: 300, y: HANDZ.y + HANDZ.flap } : null)
 
   const here = cellPos(4)
   // an explored middle region lies sideways (StageCard): the explorer stands on that card's corner, not the upright one's
@@ -662,12 +663,21 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             </AnimatePresence>
             {!s.dig && <Compass />}
           </div>
-          {/* over the limit (back from a dig with more than it holds): a red frame and a plain instruction until it is down to size */}
-          <div className={`zone label ${discarding ? 'over' : ''}`} style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h }} role={discarding ? 'alert' : undefined}>
-            {discarding
-              ? <span><b>Too many cards ({s.hand.length}/{s.limit}): throw away {over}.</b> Click the card{over === 1 ? '' : 's'} you need least; {over === 1 ? 'it goes' : 'they go'} for good.</span>
-              : <span>Your hand<Fl t={flavour?.hand} /> ({s.hand.length}/{s.limit}): food, weapons, and ranks that open key cards</span>}
+          {/* the hand is the explorer's backpack, in its world's colours, with a pocket for each card it holds; over the limit
+              (back from a dig with more than it holds) it turns red and says what to do until it is down to size */}
+          <div className={`zone packzone ${discarding ? 'over' : ''}`} role={discarding ? 'alert' : undefined}
+            style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h, '--pack-bag': PACKS[world].bag, '--pack-flap': PACKS[world].flap } as CSSProperties}>
+            <div className="packflap">
+              <div className="packtitle">
+                <span aria-hidden="true">🎒</span> {discarding ? 'Too full' : 'Backpack'} <span className="packcount">{s.hand.length}/{s.limit}</span>
+                {discarding ? <b> · throw away {over}</b> : s.hand.length === s.limit ? <em> · full</em> : null}
+              </div>
+              <div className="packsub">{discarding
+                ? `Click the card${over === 1 ? '' : 's'} you need least; ${over === 1 ? 'it goes' : 'they go'} for good.`
+                : 'Your hand: food, weapons, and ranks that open key cards'}</div>
+            </div>
           </div>
+          {!discarding && Array.from({ length: s.limit }, (_, k) => <div key={k} className="pocket" style={{ left: handPos(k, s.limit).x, top: handPos(k, s.limit).y }} aria-hidden="true" />)}
           {!s.dig && <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6, width: MCW + 12, height: MCH + 12 }} />}
           {/* a move or a zoom out waits for its card: say on the map how to back out (Esc, or click this) */}
           <AnimatePresence>
