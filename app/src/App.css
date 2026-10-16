@@ -337,6 +337,9 @@ button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-heigh
 /* struck as your card lands (Practice's STRIKE.fly) */
 .creature.hit svg { animation: creature-hit .35s .45s ease-out; }
 @keyframes creature-hit { 30% { filter: brightness(1.7) drop-shadow(0 0 5px #e8434e); } }
+/* beaten: greyed while it lies there until your next action */
+.creature svg { transition: filter .35s ease-out; }
+.creature.dead svg { filter: grayscale(.85) brightness(.9); }
 /* the explorer's sword: up over its head, then a slash down to the left as the card lands, and back (explorer.tsx) */
 .sword-swing { transform-box: view-box; transform-origin: 7px 21px; animation: sword-swing .9s both; }
 @keyframes sword-swing {

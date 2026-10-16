@@ -80,6 +80,8 @@ const cellPos = (i: number) => ({ x: MAP0.x + MAP.x + (i % 3) * MAP.px, y: MAP0.
 /** the turned-up card, up ahead on the ground */
 const FOE_CARD = { x: MAP0.x + 34, y: MAP0.y + 90 }
 /** the explorer from behind: the whole figure, `h` tall, placed so only its head and shoulders show above the map's edge */
+/** where the card you fight with lands, from the hostile card's corner (the creature stands clear of it) */
+const WEAPON = { x: 14, y: 24 }
 const HERO = { left: MAP.w - 160, top: MAP.h - 180, h: 270 }
 /** how deep you have dug and the loot so far: a panel, with the loot fanned out under it */
 const LOOT = { x: 12, y: 300, w: 146 }
@@ -425,7 +427,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     // the card you fight with flies up into the hostile card
     const weapon = act?.kind === 'fight' && act.card === c
     placed.push({
-      id: c, ...(weapon ? { x: FOE_CARD.x + 14, y: FOE_CARD.y + 24 } : handPos(k, handSorted.length)), zone: 'hand', dir, down: false,
+      id: c, ...(weapon ? { x: FOE_CARD.x + WEAPON.x, y: FOE_CARD.y + WEAPON.y } : handPos(k, handSorted.length)), zone: 'hand', dir, down: false,
       selected: false, glow: hlHand.has(i) || (!!pickSet && pickSet.has(i) && !hint), dim: !!pickSet && !pickSet.has(i),
       tag: guard ? `defends ${SUITS[suit(c)]}` : opens ? '🔑' : undefined, tagCls: guard ? 't-guard' : undefined,
       onClick: handClickable && (!pickSet || pickSet.has(i)) ? () => clickHand(i) : undefined,
@@ -442,6 +444,13 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const here = cellPos(4)
   // entering a biome: digging the middle region dives into its card (worlds with biome colours, see biome.tsx)
   const biome = s.dig ? suit(s.gc[4]) : null
+  // the explorer walks one stride per card turned up, not after a fight: beating a creature leaves you where you stand,
+  // and Flip takes you on to the next card. Beaten creatures are the loot of the region's suit (only they can be).
+  const walks = s.steps - (s.dig ? s.dig.loot.filter(c => suit(c) === biome).length : 0)
+  // the creature you just beat, lying beaten beside the card until your next action: right after a fight the beaten
+  // hostile card is the last of the loot (any flip after it adds loot, a new hostile or a key card)
+  const lastLoot = s.dig && s.dig.hostile < 0 && s.dig.found < 0 ? s.dig.loot.at(-1) ?? -1 : -1
+  const beaten = lastLoot >= 0 && suit(lastLoot) === biome ? lastLoot : -1
   /** the middle card on screen, where the camera dives in and rises out; the stage may be scaled down to fit (see Fit) */
   const middleCard = () => {
     const r = stageRef.current?.getBoundingClientRect()
@@ -594,7 +603,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             <AnimatePresence>
               {biome !== null && (
                 <motion.div key={biome} className="mapbiome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.2, delay: ARRIVE } }} exit={{ opacity: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }}>
-                  <Panorama world={world} suit={biome} walked={s.dig ? s.steps * STRIDE : 0} field />
+                  <Panorama world={world} suit={biome} walked={s.dig ? walks * STRIDE : 0} field />
                   {s.dig && <>
                     {/* the one rule of this biome, where you look first: which suit attacks (how to beat it is beside the board) */}
                     <div className={`hostile-sign ${isRed(s.gc[4]) ? 'red' : ''}`} style={{ left: 10, top: 8 }} aria-hidden="true">
@@ -605,17 +614,17 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                       <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
                     </div>
                     {/* the hostile card's creature, beside the card: it comes out from behind it once the card is up,
-                        fights back when you fight (and tumbles away when beaten), and charges at you when you flee */}
+                        fights back when you fight, lies beaten until your next action, and charges at you when you flee */}
                     <AnimatePresence>
-                      {s.dig.hostile >= 0 && (
-                        <Creature key={s.dig.hostile} world={world} card={s.dig.hostile}
-                          left={FOE_CARD.x - MAP0.x + Math.max(0, [s.dig.hostile, s.dig.found].filter(c => c >= 0).length - 1) * (CW + 8) + CW + 2}
+                      {(s.dig.hostile >= 0 || beaten >= 0) && (
+                        <Creature key={s.dig.hostile >= 0 ? s.dig.hostile : beaten} world={world} card={s.dig.hostile >= 0 ? s.dig.hostile : beaten} dead={s.dig.hostile < 0}
+                          left={FOE_CARD.x - MAP0.x + Math.max(Math.max(0, [s.dig.hostile, s.dig.found].filter(c => c >= 0).length - 1) * (CW + 8) + CW + 2, WEAPON.x + CW + 6)}
                           bottom={FOE_CARD.y - MAP0.y + CH + 3} delay={(arriving ? ARRIVE : 0) + 0.4}
                           action={act?.kind === 'fight' || act?.kind === 'flee' ? act.kind : undefined} seconds={act?.seconds} />
                       )}
                     </AnimatePresence>
-                    {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up or beat, runs off the side when you flee, and takes the loot in its backpack when you stop */}
-                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act && act.kind !== 'fight' ? act.kind : `dig ${s.steps}`} toward={[0, 0]} delay={0}
+                    {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up (not after a fight), runs off the side when you flee, and takes the loot in its backpack when you stop */}
+                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act && act.kind !== 'fight' ? act.kind : `dig ${walks}`} toward={[0, 0]} delay={0}
                       leave={act?.kind === 'flee' ? { pace: 'run', seconds: RUN_OFF } : act?.kind === 'walk' ? { pace: 'walk', seconds: WALK_OFF } : undefined}
                       stash={act?.kind === 'stash' ? act.seconds : 0} swing={act?.kind === 'fight' ? act.seconds : 0} />
                   </>}

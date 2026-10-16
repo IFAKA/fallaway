@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { WorldId } from './menu/worlds'
 import { FLAP } from './menu/transition'
@@ -177,7 +177,11 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
   swing?: number
 }) {
   const reduce = useReducedMotion()
-  const walking = !!toward && !reduce
+  // the step it last fought on: when the sword swing ends it stays put until the next step, instead of walking again
+  const [fought, setFought] = useState<number | string | null>(null)
+  if (swing && fought !== step) setFought(step)
+  const rest = !swing && fought === step
+  const walking = !!toward && !reduce && !rest
   const [dx, dy] = toward ?? [0, 0]
   return (
     <motion.div
@@ -195,7 +199,7 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
         // from behind it walks away from you: two steps, a bob on each and the shoulders swaying side to side;
         // otherwise it strides toward the next region
         style={back ? { originX: 0.5, originY: 1 } : undefined}
-        animate={!walking ? undefined : swing
+        animate={rest ? { x: 0, y: 0, rotate: 0 } : !walking ? undefined : swing
           ? { x: [0, 4, -14, -12, 0], y: [0, 2, -5, -4, 0] }
           : stash
           ? { y: [0, 0, 4, 0, 4, 0, 4, 0, 0], scaleY: [1, 1, 0.97, 1, 0.97, 1, 0.97, 1, 1] }

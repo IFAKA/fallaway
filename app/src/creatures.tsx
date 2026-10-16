@@ -713,11 +713,12 @@ const EASE_OUT = [0.23, 1, 0.32, 1] as const
 /**
  * The creature of hostile card `card`, standing with its feet at `left`, `bottom` (map coordinates) beside the card.
  * It slides out from behind the card `delay` seconds after the card comes into sight, waits (bobbing if it flies), and:
- * `fight` (for `seconds`): lunges at you and is knocked back as your card and your sword hit; beaten, it tumbles away
- * (its exit). `flee`: it charges at you as you run.
+ * `fight` (for `seconds`): lunges at the cards and is knocked back to the right as your card and your sword hit.
+ * `dead`: beaten, it falls over to the right and lies there, greyed, until your next action, then fades (its exit).
+ * `flee`: it charges at you as you run.
  */
-export function Creature({ world, card, left, bottom, delay, action, seconds = 0 }: {
-  world: WorldId; card: number; left: number; bottom: number; delay: number; action?: 'fight' | 'flee'; seconds?: number
+export function Creature({ world, card, left, bottom, delay, action, seconds = 0, dead = false }: {
+  world: WorldId; card: number; left: number; bottom: number; delay: number; action?: 'fight' | 'flee'; seconds?: number; dead?: boolean
 }) {
   const reduce = useReducedMotion()
   const kind = CREATURES[world]?.[suit(card)][sizeOf(card)]
@@ -725,22 +726,24 @@ export function Creature({ world, card, left, bottom, delay, action, seconds = 0
   const h = SIZE[sizeOf(card)]
   return (
     <motion.div
-      className={`creature ${action === 'flee' ? 'charging' : ''} ${action === 'fight' ? 'hit' : ''}`}
+      className={`creature ${action === 'flee' ? 'charging' : ''} ${action === 'fight' ? 'hit' : ''} ${dead ? 'dead' : ''}`}
       style={{ left, top: bottom - h, width: h, height: h }}
       aria-hidden="true"
       // out from behind the card's right edge (it is drawn under the cards) to stand beside it
       initial={reduce ? { opacity: 0 } : { opacity: 0, x: -h * 0.6, scale: 0.94 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      transition={{ duration: reduce ? 0.2 : 0.35, ease: EASE_OUT, delay }}
-      exit={reduce ? { opacity: 0, transition: { duration: 0.2 } } : { opacity: 0, x: -10, y: 8, rotate: -35, scale: 0.85, transition: { duration: 0.3, ease: EASE_OUT } }}
+      animate={dead && !reduce ? { opacity: 1, x: 10, scale: 0.92, rotate: 90 } : { opacity: 1, x: 0, scale: 1, rotate: 0 }}
+      transition={dead ? { duration: reduce ? 0.2 : 0.35, ease: EASE_OUT } : { duration: reduce ? 0.2 : 0.35, ease: EASE_OUT, delay }}
+      // beaten, it lies on its side (turned about its middle, so it stays in its square, clear of the cards) and fades on your next action
+      exit={{ opacity: 0, transition: { duration: 0.25, ease: EASE_OUT } }}
     >
       <motion.div
         className="creature-body"
         animate={reduce ? undefined
-          : action === 'fight' ? { x: [0, 9, -12, -9, -9], y: [0, 3, -3, 0, 0], rotate: [0, 6, -14, -10, -10] }
+          : dead ? { x: 0, y: 0, rotate: 0 }
+          : action === 'fight' ? { x: [0, -6, 12, 9, 9], y: [0, 3, -3, 0, 0], rotate: [0, -6, 14, 10, 10] }
           : action === 'flee' ? { x: [0, 150], y: [0, 120], scale: [1, 2.3] }
           : kind.flies ? { y: [0, -2.5, 0] } : undefined}
-        transition={action === 'fight' ? { duration: seconds, times: [0, 0.35, 0.5, 0.7, 1], ease: 'easeOut' }
+        transition={dead ? { duration: 0.35, ease: EASE_OUT } : action === 'fight' ? { duration: seconds, times: [0, 0.35, 0.5, 0.7, 1], ease: 'easeOut' }
           : action === 'flee' ? { duration: seconds, ease: [0.55, 0, 1, 0.45] }
           : { duration: 1.4, ease: 'easeInOut', repeat: Infinity, delay: delay + 0.35 }}
       >
