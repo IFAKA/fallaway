@@ -104,7 +104,11 @@ Before themed motion: the on-screen game should read as a game, not a debug view
 
 - ~~Land falling away on a move~~: dropped (decided 2026-10-16). Zooming in already carries the movement.
 - [ ] Dig effect when zooming in: soil cracks, wrapper tears, dust puffs.
-- [ ] Hostile cards: the user has a different idea from the creature silhouettes (to be specified).
+- [ ] **Hostile creatures** (`src/creatures.tsx`), SVG in a chibi style (big head, thick dark outline, a darker side, angry brows, one prop each). Three per biome, picked by the hostile card's rank in the dig-depth bands (`depthOf`: 2–5 small, 6–10 medium, J–A big). The creature slides out from behind the hostile card to stand beside it, just after the card turns up; flying creatures (the bee) bob while they wait, the others stand still. **Fight:** your card still flies into the hostile card; the creature lunges, the explorer draws a sword and slashes (CSS `sword-swing`, timed so the blow lands with the card), the creature is knocked back, and once beaten it tumbles away. **Flee:** the creature charges at you while the explorer runs off as before. Reduced motion: it fades in and out, no fight or charge.
+  - [x] Earth: ♠ goat / eagle / yeti, ♥ bee / boar / bull, ♦ scorpion / rattlesnake / sandworm, ♣ hedgehog / wolf / bear.
+  - [ ] Sugar Rose (worlds without creatures show none yet).
+  - [ ] Moon.
+- [x] **Explorer restyled to match** (`src/explorer.tsx`), in every world: chibi proportions, outline and shading, a sword for fights. The backpack's opening moved, so its position now lives in `src/explorerPack.ts`, where Practice reads it.
 - [x] **Win / lose screens per world** (`src/ending.tsx`): when a game ends, a dialog opens over the board (after 0.6 s, so the last move plays) with a small scene standing on your key suit's ground. Earth: the sun comes up / night falls. Sugar Rose: a shower of sweets / the sugar sun melts. Moon: Earth rises / Earth sets. The explorer jumps for joy or sits down. Under it: the result, a flavour line (`flavour.win` / `flavour.lose` in `worlds.ts`), the record, and the buttons. After a **win**: New game, Copy result (daily), Replay this deal and See the board (Esc), after which the result box beside the board takes over. After a **loss** the dialog can't be closed (no Esc, no click outside, keys and the board behind it are inert): only New game, Copy result (daily) and Back to menu.
 - [ ] Reduced motion: every themed animation falls back to a simple fade (the ending dialog does: last frame, faded in).
 

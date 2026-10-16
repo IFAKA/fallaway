@@ -17,6 +17,8 @@ import { Ending } from './ending'
 import { reducedMotion } from './menu/reducedMotion'
 import { DIVE_SECONDS, FLAP } from './menu/transition'
 import { Explorer, ExplorerIcon } from './explorer'
+import { PACK_MOUTH } from './explorerPack'
+import { Creature } from './creatures'
 import { PlanetMap } from './planetMap'
 import { B, FitScreen, HowToPlay } from './shared'
 import { WHY, lbl, suitTxt } from './text'
@@ -90,8 +92,8 @@ const RUN_OFF = 0.6
  *  explorer walks off across the field (as when fleeing, at a walk); then the camera rises out */
 const STASH = { fly: 0.7, gap: 0.18 }
 const WALK_OFF = 1.3
-/** where the backpack's opening is on the stage, seen from behind (explorer.tsx Pack: the opening at 14, 19.4 of 28 × 44) */
-const PACK = { x: MAP0.x + HERO.left + (14 / 44) * HERO.h, y: MAP0.y + HERO.top + (19.4 / 44) * HERO.h }
+/** where the backpack's opening is on the stage, seen from behind (explorer.tsx) */
+const PACK = { x: MAP0.x + HERO.left + (PACK_MOUTH.x / PACK_MOUTH.h) * HERO.h, y: MAP0.y + HERO.top + (PACK_MOUTH.y / PACK_MOUTH.h) * HERO.h }
 /** a card going into the backpack: up beside the explorer's shoulder at a size that fits the opening (clear of its
  *  head), then down into the open bag */
 const INTO_PACK = {
@@ -602,10 +604,20 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                       <span>Dug <b>{s.dig.flips}</b> of {s.dig.depth} · Loot <b>{s.dig.loot.length}</b></span>
                       <span className="pips" aria-hidden="true">{Array.from({ length: s.dig.depth }, (_, k) => <i key={k} className={k < s.dig!.flips ? 'on' : ''} />)}</span>
                     </div>
+                    {/* the hostile card's creature, beside the card: it comes out from behind it once the card is up,
+                        fights back when you fight (and tumbles away when beaten), and charges at you when you flee */}
+                    <AnimatePresence>
+                      {s.dig.hostile >= 0 && (
+                        <Creature key={s.dig.hostile} world={world} card={s.dig.hostile}
+                          left={FOE_CARD.x - MAP0.x + Math.max(0, [s.dig.hostile, s.dig.found].filter(c => c >= 0).length - 1) * (CW + 8) + CW + 2}
+                          bottom={FOE_CARD.y - MAP0.y + CH + 3} delay={(arriving ? ARRIVE : 0) + 0.4}
+                          action={act?.kind === 'fight' || act?.kind === 'flee' ? act.kind : undefined} seconds={act?.seconds} />
+                      )}
+                    </AnimatePresence>
                     {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up or beat, runs off the side when you flee, and takes the loot in its backpack when you stop */}
                     <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act && act.kind !== 'fight' ? act.kind : `dig ${s.steps}`} toward={[0, 0]} delay={0}
                       leave={act?.kind === 'flee' ? { pace: 'run', seconds: RUN_OFF } : act?.kind === 'walk' ? { pace: 'walk', seconds: WALK_OFF } : undefined}
-                      stash={act?.kind === 'stash' ? act.seconds : 0} />
+                      stash={act?.kind === 'stash' ? act.seconds : 0} swing={act?.kind === 'fight' ? act.seconds : 0} />
                   </>}
                 </motion.div>
               )}

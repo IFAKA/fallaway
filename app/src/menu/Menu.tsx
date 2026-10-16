@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useDrag } from '@use-gesture/react'
 import { HowToPlay } from '../shared'
+import { Bestiary } from '../creatures'
 import { transitionOf, type Arrival, type Destination } from '../screens'
 import { Backdrop } from './Backdrop'
 import { WorldCarousel } from './WorldCarousel'
@@ -51,6 +52,8 @@ export default function Menu({ continuable, onEnter, from = 'direct' }: MenuProp
   /** Null while choosing. */
   const [leaving, setLeaving] = useState<Leaving | null>(null)
   const [rules, setRules] = useState(false)
+  /** TEMPORARY: the creatures preview */
+  const [bestiary, setBestiary] = useState(false)
   /** Coming back from a world: waiting for the first frame at its surface, then rising out to the carousel. */
   const [rise, setRise] = useState<'waiting' | 'rising' | 'done'>(from === 'dive' && !reducedMotion ? 'waiting' : 'done')
   const diving = leaving?.via === 'dive'
@@ -62,14 +65,14 @@ export default function Menu({ continuable, onEnter, from = 'direct' }: MenuProp
 
   // Arrow keys pick a world, only while the carousel is what you are looking at.
   useEffect(() => {
-    if (busy || rules) return
+    if (busy || rules || bestiary) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') next()
       else if (e.key === 'ArrowLeft') prev()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [next, prev, busy, rules])
+  }, [next, prev, busy, rules, bestiary])
 
   const stage = useRef<HTMLDivElement>(null)
 
@@ -142,9 +145,12 @@ export default function Menu({ continuable, onEnter, from = 'direct' }: MenuProp
         <MenuButton onClick={() => leave(DAILY)}>Daily deal</MenuButton>
         <MenuButton onClick={() => leave(REAL_DECK)}>Real deck</MenuButton>
         <MenuButton onClick={() => setRules(true)}>How to play</MenuButton>
+        {/* TEMPORARY: preview the creatures of the selected world */}
+        <MenuButton onClick={() => setBestiary(true)}>Creatures</MenuButton>
       </nav>
 
       {rules ? <HowToPlay onClose={() => setRules(false)} /> : null}
+      {bestiary ? <Bestiary world={world.id} onClose={() => setBestiary(false)} /> : null}
 
       {/* Washes the screen in the world's colour as the camera reaches the surface. */}
       <div className="zoom-veil" aria-hidden="true" />
