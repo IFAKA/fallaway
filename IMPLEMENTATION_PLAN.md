@@ -100,13 +100,13 @@ Before themed motion: the on-screen game should read as a game, not a debug view
 - [x] **No log, one short coach line** (after testing): the log panel is hidden, and the long instruction card became a title and one line of what to do now (Coach in `Practice.tsx`), on top of the actions beside the board. Key progress is left to the tracker chips and the key row; the full rules stay in How to play. With no side panel the screen is one column.
 - Checked at 1900×960, 1440×900, 1280×720 and 390×844: no page scroll on desktop (the board scales from 0.84 to 1.16), the whole board in the first screen on a phone, no disabled action buttons, the end-of-game box beside the table. `FitScreen` in `src/shared.tsx`; the real-deck guide keeps its own layout and its own bar.
 
-## Phase 6: Themed motion
+## Phase 6: Themed motion (in progress)
 
-- [ ] Land falling away on a move: Earth crumbles, Sugar Rose melts, Moon floats off.
+- ~~Land falling away on a move~~: dropped (decided 2026-10-16). Zooming in already carries the movement.
 - [ ] Dig effect when zooming in: soil cracks, wrapper tears, dust puffs.
-- [ ] Hostile card appearing: a world creature silhouette (expedition danger, not a "kill" moment).
-- [ ] Win / lose screens per world (sunrise, candy confetti, Earth rising).
-- [ ] Reduced motion: every themed animation falls back to a simple fade.
+- [ ] Hostile cards: the user has a different idea from the creature silhouettes (to be specified).
+- [x] **Win / lose screens per world** (`src/ending.tsx`): when a game ends, a dialog opens over the board (after 0.6 s, so the last move plays) with a small scene standing on your key suit's ground. Earth: the sun comes up / night falls. Sugar Rose: a shower of sweets / the sugar sun melts. Moon: Earth rises / Earth sets. The explorer jumps for joy or sits down. Under it: the result, a flavour line (`flavour.win` / `flavour.lose` in `worlds.ts`), the record, and the buttons. After a **win**: New game, Copy result (daily), Replay this deal and See the board (Esc), after which the result box beside the board takes over. After a **loss** the dialog can't be closed (no Esc, no click outside, keys and the board behind it are inert): only New game, Copy result (daily) and Back to menu.
+- [ ] Reduced motion: every themed animation falls back to a simple fade (the ending dialog does: last frame, faded in).
 
 ## Phase 7: Must stay true in every world
 

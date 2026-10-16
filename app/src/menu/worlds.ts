@@ -17,6 +17,10 @@ export interface Flavour {
   hand: string
   /** Beside "gone for good". */
   gone: string
+  /** Under the result when you win, as the world's ending scene plays. */
+  win: string
+  /** Under the result when you lose. */
+  lose: string
 }
 
 export interface World {
@@ -57,7 +61,7 @@ export const WORLDS: readonly World[] = [
     accent: '#5cc98f',
     accentText: '#062114',
     terrain: terrain(['Mountains', 'Meadow', 'Desert', 'Forest']),
-    flavour: { dig: 'break ground', hand: 'your pack', gone: 'lost to the wild' },
+    flavour: { dig: 'break ground', hand: 'your pack', gone: 'lost to the wild', win: 'The sun comes up over the old map', lose: 'Night falls on the old map' },
   },
   {
     id: 'candy',
@@ -67,7 +71,7 @@ export const WORLDS: readonly World[] = [
     accent: '#ff79ad',
     accentText: '#3a0619',
     terrain: terrain(['Rock-candy peaks', 'Frosting plains', 'Caramel dunes', 'Candy-cane woods']),
-    flavour: { dig: 'unwrap it', hand: 'your sweets bag', gone: 'melted away' },
+    flavour: { dig: 'unwrap it', hand: 'your sweets bag', gone: 'melted away', win: 'A shower of sweets for the way home', lose: 'The sugar sun melts away' },
   },
   {
     id: 'moon',
@@ -77,6 +81,6 @@ export const WORLDS: readonly World[] = [
     accent: '#a596ff',
     accentText: '#130b3a',
     terrain: terrain(['Ridges', 'Ice flats', 'Dust sea', 'Crater field']),
-    flavour: { dig: 'sift the dust', hand: 'your supply crate', gone: 'drifted off' },
+    flavour: { dig: 'sift the dust', hand: 'your supply crate', gone: 'drifted off', win: 'Earth rises: the way home is lit', lose: 'Earth sets, and the dust settles' },
   },
 ]

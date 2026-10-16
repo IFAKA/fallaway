@@ -13,6 +13,7 @@ import type { Start } from './screens'
 import type { Flavour, WorldId } from './menu/worlds'
 import { Panorama, RegionArt } from './regionArt'
 import { BiomeDive } from './biome'
+import { Ending } from './ending'
 import { reducedMotion } from './menu/reducedMotion'
 import { DIVE_SECONDS, FLAP } from './menu/transition'
 import { Explorer, ExplorerIcon } from './explorer'
@@ -270,13 +271,15 @@ interface PracticeProps {
   world?: WorldId
   /** the screen's own controls (← Menu, title, world), shown first in the game's one header bar */
   bar?: ReactNode
+  /** back to the main menu (the loss dialog's way out besides New game) */
+  onMenu?: () => void
 }
 
 /** a world's word beside a real term: "gone for good · melted away" */
 const Fl = ({ t }: { t?: string }) => (t ? <i className="flavour"> · {t}</i> : null)
 
 // ---------- app ----------
-export default function Practice({ saveKey, start = 'resume', dealt = true, flavour, world = 'earth', bar }: PracticeProps) {
+export default function Practice({ saveKey, start = 'resume', dealt = true, flavour, world = 'earth', bar, onMenu }: PracticeProps) {
   const [first] = useState(() => begin(start, saveKey))
   const [history, setHistory] = useState<State[]>(first.history)
   const [meta, setMeta] = useState<Meta>(first.meta)
@@ -284,6 +287,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const [copied, setCopied] = useState(false)
   const [pending, setPending] = useState<Pending>(null)
   const [hint, setHint] = useState(false)
+  /** the finished state whose ending dialog you closed ("See the board"); any other finished state opens it */
+  const [closedEnd, setClosedEnd] = useState<State | null>(null)
   const [intro, setIntro] = useState(() => { try { return !localStorage.getItem(SEEN) && !urlSeed() } catch { return false } })
   const stageRef = useRef<HTMLDivElement>(null)
   const [dir, setDir] = useState<number | null>(null)
@@ -322,6 +327,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   }
 
   const over = overflow(s)
+  const endOpen = !!s.over && closedEnd !== s
+  const won = s.over === 'win'
   const tip = hint ? advise(s) : null
   const adv: Advice | undefined = tip?.advice
   const ready = !s.over && !over && !s.dig && !pending
@@ -447,6 +454,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || intro || act) return
+      // the ending dialog: Enter is left to its focused button; after a win Esc shows the board, after a loss only its buttons lead on
+      if (endOpen && (!won || e.key === 'Escape' || e.key === 'Enter')) { if (won && e.key === 'Escape') { e.preventDefault(); setClosedEnd(s) } return }
       const k = e.key.toLowerCase()
       const arrow = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k)
       let done = true
@@ -471,11 +480,34 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  // the result: in the ending dialog, then beside the board once you close it
+  const endText = s.over && <>
+    <div className="result" id={endOpen ? 'ending-title' : undefined}>{won ? 'YOU REACHED THE FINISH — YOU WIN' : nearMiss(s)}</div>
+    {flavour && endOpen && <div className="flavour">{won ? flavour.win : flavour.lose}</div>}
+    <div className="muted">{s.over === 'lose' && WHY[s.why!]} {s.steps} actions · key {keyCount(s)}/{RUN} · {meta.daily ? `daily deal ${meta.daily}` : `deal #${s.seed}`}</div>
+    <div className="record">{stats.played
+      ? <>Your record: won <b>{stats.won}</b> of {stats.played} ({Math.round(100 * stats.won / stats.played)}%) · streak <b>{stats.streak}</b> · best {stats.best}</>
+      : 'Your record starts with your first counted game.'}
+      {!meta.ranked && <span className="muted"> · this game was not counted ({!meta.daily && urlSeed() ? 'a shared deal' : 'you used Undo or Hint, or replayed the deal'})</span>}</div>
+  </>
+
   return (
     <>
     {intro && <Intro onClose={closeIntro} />}
+    {endOpen && !intro && (
+      // a win can be closed to look at the board; a loss can't: a new game, or back to the menu
+      <Ending key={history.length} world={world} suit={s.S} win={won} onClose={won ? () => setClosedEnd(s) : undefined}>
+        {endText}
+        <div className="endbtns">
+          <button className="big" onClick={newDeal}>New game</button>
+          {meta.daily && <button onClick={share}>{copied ? 'Copied!' : 'Copy result'}</button>}
+          {won && <button onClick={replay}>Replay this deal</button>}
+          {won ? <button onClick={() => setClosedEnd(s)}>See the board <small>Esc</small></button> : onMenu && <button onClick={onMenu}>Back to menu</button>}
+        </div>
+      </Ending>
+    )}
     <BiomeDive world={world} suit={biome} card={middleCard}>
-    <div className="play onscreen">
+    <div className="play onscreen" inert={endOpen}>
       <div className="boardcol">
         <header className="topbar">
           {bar}
@@ -520,13 +552,9 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             </div>
           )}
           {s.over ? (
-          <div className="endbox">
-            <div className="result">{s.over === 'win' ? 'YOU REACHED THE FINISH — YOU WIN' : nearMiss(s)}</div>
-            <div className="muted">{s.over === 'lose' && WHY[s.why!]} {s.steps} actions · key {keyCount(s)}/{RUN} · {meta.daily ? `daily deal ${meta.daily}` : `deal #${s.seed}`}</div>
-            <div className="record">{stats.played
-              ? <>Your record: won <b>{stats.won}</b> of {stats.played} ({Math.round(100 * stats.won / stats.played)}%) · streak <b>{stats.streak}</b> · best {stats.best}</>
-              : 'Your record starts with your first counted game.'}
-              {!meta.ranked && <span className="muted"> · this game was not counted ({!meta.daily && urlSeed() ? 'a shared deal' : 'you used Undo or Hint, or replayed the deal'})</span>}</div>
+          // while the ending dialog is open it shows the result; this box takes over once you close it
+          !endOpen && <div className="endbox">
+            {endText}
             <div className="endbtns">
               <button className="big" onClick={newDeal}>New game</button>
               {meta.daily && <button onClick={share}>{copied ? 'Copied!' : 'Copy result'}</button>}
