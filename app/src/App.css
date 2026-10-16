@@ -351,15 +351,3 @@ button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-heigh
 }
 @media (prefers-reduced-motion: reduce) { .creature.hit svg, .sword-swing { animation: none; } }
 
-/* ---- TEMPORARY: the creatures preview from the menu (creatures.tsx Bestiary) ---- */
-.bestiary { width: min(560px, 100%); }
-.bestiary-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 6px; }
-.bestiary-tabs button { padding: 5px 12px; font-size: 13px; }
-.bestiary-grid { display: grid; grid-template-columns: auto repeat(3, 1fr); gap: 8px; align-items: center; margin: 10px 0 14px; }
-.bestiary-band { text-align: center; font-size: 12px; font-weight: 700; opacity: .75; }
-.bestiary-biome { font-size: 13px; line-height: 1.2; max-width: 90px; }
-.bestiary-biome b { font-size: 18px; }
-.bestiary-cell { position: relative; margin: 0; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
-.bestiary-ground { position: absolute; inset: 0; width: 100%; height: 100%; }
-.bestiary-cell svg:not(.bestiary-ground) { position: absolute; inset: 4% 8% 14%; width: 84%; height: 82%; overflow: visible; filter: drop-shadow(0 2px 2px #0005); }
-.bestiary-cell figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 4px; font-size: 11px; text-align: center; background: #000a; color: #fff; }

@@ -1,8 +1,7 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { SUITS, depthOf, suit } from '../../core/engine'
-import { WORLDS, type WorldId } from './menu/worlds'
-import { Scene } from './regionArt'
+import { depthOf, suit } from '../../core/engine'
+import type { WorldId } from './menu/worlds'
 
 // Hostile creatures: the face of a hostile card while you dig. Each biome has three, picked by the card's rank in the
 // same bands that set a region's dig depth (2–5 small, 6–10 medium, J–A big), so a bigger creature is a higher card.
@@ -759,54 +758,5 @@ export function Creature({ world, card, left, bottom, delay, action, seconds = 0
         <svg viewBox="0 0 60 60" width={h} height={h}><g ref={measure} {...LINE}>{kind.art}</g></svg>
       </motion.div>
     </motion.div>
-  )
-}
-
-/** the three sizes, by the hostile card's rank */
-const BANDS = ['2–5', '6–10', 'J–A'] as const
-
-/**
- * TEMPORARY (menu preview): every creature of a world, one row per biome, each standing on its biome's ground, with a
- * tab per world (it opens on `world`, the one selected in the menu). Remove with its menu button once the art is signed off.
- */
-export function Bestiary({ world: first, onClose }: { world: WorldId; onClose: () => void }) {
-  const [world, setWorld] = useState(first)
-  const closeRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => closeRef.current?.focus({ preventScroll: true }), [])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  const w = WORLDS.find(x => x.id === world)!
-  const rows = CREATURES[world]
-  return (
-    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="bestiary-title" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="card-modal bestiary">
-        <h2 id="bestiary-title">Creatures of {w.name}</h2>
-        <div className="bestiary-tabs" role="tablist" aria-label="Planet">
-          {WORLDS.map(x => (
-            <button key={x.id} type="button" role="tab" aria-selected={x.id === world} className={x.id === world ? 'on' : ''} onClick={() => setWorld(x.id)}>{x.name}</button>
-          ))}
-        </div>
-        {rows ? <>
-          <p className="muted">A hostile card brings the creature of its biome and rank. Preview only.</p>
-          <div className="bestiary-grid">
-            <span />{BANDS.map(b => <span key={b} className="bestiary-band">{b}</span>)}
-            {rows.map((row, s) => <Fragment key={s}>
-              <span className="bestiary-biome"><b>{SUITS[s]}</b> {w.terrain[s].name}</span>
-              {row.map((k, z) => (
-                <figure key={`${s}-${z}`} className="bestiary-cell">
-                  <Scene world={world} suit={s} className="bestiary-ground" />
-                  <svg viewBox="0 0 60 60" aria-hidden="true"><g {...LINE}>{k.art}</g></svg>
-                  <figcaption>{k.name}{k.flies ? ' · flies' : ''}</figcaption>
-                </figure>
-              ))}
-            </Fragment>)}
-          </div>
-        </> : <p className="muted">No creatures for {w.name} yet.</p>}
-        <button ref={closeRef} className="big" onClick={onClose}>Close</button>
-      </div>
-    </div>
   )
 }
