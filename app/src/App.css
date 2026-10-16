@@ -122,13 +122,6 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 /* unexplored regions lie under fog */
 .acard.fog .backside::after { content: ''; position: absolute; inset: 0; border-radius: 5px; background: radial-gradient(ellipse at 30% 35%, #fff5 0, transparent 60%), radial-gradient(ellipse at 70% 75%, #fff4 0, transparent 55%); }
 /* the map's key, above the coach: a fogged card back and the explorer */
-/* while you dig, beside the board: this biome's hostile suit and how to defend (in place of the map's key) */
-.digrule { text-align: center; margin-bottom: 10px; }
-.digrule-title { font-size: 16px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--title); }
-.digrule .big-suit { font-size: 72px; line-height: 1; }
-.digrule-line { font-size: 14px; opacity: .85; }
-.mapkey { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: 13px; opacity: .85; margin-bottom: 10px; }
-.mapkey span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .legend-fog { position: relative; display: inline-block; width: 14px; height: 20px; border-radius: 2px; box-sizing: border-box; background: var(--card-back); border: 1px solid var(--card-back-edge); }
 .legend-fog::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 35% 40%, #fff6 0, transparent 70%); }
 /* while you dig, the map's other regions step aside for the dig's cards */
@@ -150,8 +143,8 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .acard { position: absolute; left: 0; top: 0; width: 62px; height: 88px; perspective: 700px; user-select: none; z-index: 3; }
 .acard.clickable { cursor: pointer; }
 .acard.clickable:hover .front { filter: brightness(1.08); }
-.acard.selected .front { outline: 3px solid #ffd36b; box-shadow: 0 0 12px #ffd36b; }
-.acard.glow .front { outline: 3px solid #ffd36b; box-shadow: 0 0 14px #ffd36b; }
+.acard.selected .cf { outline: 3px solid #ffd36b; box-shadow: 0 0 12px #ffd36b; }
+.acard.glow .cf { outline: 3px solid #ffd36b; box-shadow: 0 0 14px #ffd36b; }
 /* a hostile card being hit in a fight (Practice.tsx STRIKE): a red flash when your card reaches it */
 .acard.hit .front { animation: hitflash .35s .45s ease-out; }
 @keyframes hitflash { 0%, 100% { box-shadow: none; filter: none; } 30% { box-shadow: 0 0 0 4px #e8434e, 0 0 18px #e8434e; filter: brightness(1.15) saturate(1.4); } }
@@ -213,20 +206,26 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 /* ---- the on-screen game: one header line, the tracker, then the table scaled to the rest of the window (no scrolling),
    with only the actions you can take right now beside it (FitScreen in shared.tsx) ---- */
 .onscreen { height: 100vh; grid-template-columns: minmax(0, 1fr); }
-/* what to do now, on top of the actions: a title and one line (Coach in Practice.tsx) */
-.coach { background: var(--felt); border: 2px solid #c8a21b; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
-.coach-title { font-weight: 800; font-size: 16px; color: #ffd36b; margin-bottom: 2px; }
-.coach-line { font-size: 14px; line-height: 1.45; }
-.onscreen .advice { font-size: 13px; line-height: 1.4; margin-bottom: 10px; }
-.onscreen .advice .small { display: block; margin: 6px 0 0; }
+/* what to do now, as the map's caption: a title and one line, up to two lines in all (Coach in Practice.tsx) */
+.stage .zcap.coach { height: 36px; white-space: normal; text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 400; line-height: 1.35; opacity: 1; overflow: hidden; }
+.coach-title { font-weight: 800; color: #ffd36b; }
 .onscreen .boardcol { min-height: 0; gap: 8px; }
 .onscreen .topbar { gap: 10px; row-gap: 6px; }
 .onscreen .lock { padding: 5px 10px; }
 button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .fitscreen { flex: 1; min-height: 0; display: flex; gap: 20px; align-items: center; justify-content: center; }
 .fitscreen-board { flex: none; }
-.fitscreen-aside { width: 260px; flex: none; }
-.onscreen .actions { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+/* inside a biome its actions stand in the scene, on the ground above the loot (the dig bar) */
+.onscreen .actions { display: flex; gap: 8px; min-height: 0; }
+.stage .digbar { position: absolute; justify-content: center; align-items: flex-end; gap: 10px; z-index: 3; transition: opacity .2s ease-out; }
+.stage .digbar.busy { opacity: 0; }
+/* each a chunky tile: icon, action, what it costs or gives, and its key in the corner */
+.onscreen .digbar .digbtn { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; width: 104px; padding: 10px 6px 9px; text-align: center; border-radius: 14px; font-size: 16px; line-height: 1.1; }
+.digbtn-icon { font-size: 24px; line-height: 1; margin-bottom: 3px; }
+.digbtn-label { font-weight: 800; }
+.onscreen .digbar .digbtn small { font-size: 11px; line-height: 1.15; }
+.digbtn kbd { position: absolute; top: 5px; right: 6px; font: 700 9px/1 system-ui, sans-serif; padding: 2px 4px; border-radius: 4px; background: #0002; opacity: .7; }
+.digbtn.danger kbd { background: #fff3; }
 /* the actions are chunky, solid game buttons, the same in every world, so they read over any table or biome:
    light for the everyday ones, gold for the main move, red for fleeing a hostile card */
 .onscreen .actions button {
@@ -245,17 +244,25 @@ button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-heigh
 @media (prefers-reduced-motion: reduce) { .onscreen .actions button.danger.urgent { animation: none; box-shadow: 0 4px 0 #86221b, 0 0 0 4px #ff6b5f; } }
 .onscreen .actions small { display: block; font-size: 12px; font-weight: 600; opacity: .75; }
 /* a hostile card is waiting: the coach turns red */
-.coach.alert { border-color: #ff6b5f; box-shadow: 0 0 18px #ff6b5f66; }
 .coach.alert .coach-title { color: #ff8a80; }
 .onscreen .endbox { text-align: left; padding: 10px 12px; }
+/* the result over the map once the ending dialog is closed */
+.stage .endbanner { position: absolute; z-index: 5; box-sizing: border-box; box-shadow: 0 6px 20px #0008; }
+.stage .endbanner .endbtns { flex-direction: row; flex-wrap: wrap; }
+/* the map's one control: zoom out (reveal the whole map), in its top-right corner */
+.stage .zoomout { position: absolute; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 54px; height: 54px; padding: 0; border-radius: 50%; font-size: 24px; line-height: 1; font-weight: 800; background: #f4f1e8; color: #1b1b1b; border: 2px solid #fff; box-shadow: 0 3px 0 #0007, 0 6px 14px #0006; }
+.stage .zoomout small { font-size: 10px; font-weight: 700; opacity: .75; }
+.stage .zoomout:hover:not(:disabled) { filter: brightness(1.06); }
+.stage .zoomout.on, .stage .zoomout.glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 16px #ffd36b; }
+.stage .zoomout:disabled { opacity: .5; }
+/* a map card you can click (a neighbour to move to, or the middle card) lifts its outline on hover */
+.acard.clickable:hover .cf { box-shadow: 0 0 0 3px #ffd36b99, 0 4px 12px #0006; }
 .onscreen .endbox .result { font-size: 19px; line-height: 1.2; margin-bottom: 4px; }
 .endbtns { display: flex; flex-direction: column; gap: 6px; }
-/* phones: the table fits the width, the actions go under it in a row, the page scrolls to the instructions */
+/* phones: the table fits the width */
 @media (max-width: 900px) {
   .onscreen { height: auto; }
   .fitscreen { flex-direction: column; flex: none; align-items: flex-start; justify-content: flex-start; }
-  .fitscreen-aside { width: 100%; }
-  .onscreen .actions { flex-direction: row; flex-wrap: wrap; }
 }
 /* full-screen washes between the menu and a game screen (see Veil in App.tsx): the world's colour around a dive
    (--veil, set by worldTheme), or the menu's dark for Real deck's plain fade */

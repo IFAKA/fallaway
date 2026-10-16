@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { AnimatePresence, motion, useIsPresent } from 'framer-motion'
 import {
-  RUN, SUITS, advise, dangerOf, applyAdvice, bustChance, canClaim, canDig, canFight, canFinish, canFlee, canFlip, canLeave, canMove, canScout, canStop, canTake, claim, claimers,
+  RUN, SUITS, advise, dangerOf, bustChance, canClaim, canDig, canFight, canFinish, canFlee, canFlip, canLeave, canMove, canScout, canStop, canTake, claim, claimers,
   depthOf, dig, discard, fight, fighters, finish, flee, flip, hasKey, isKeyCard, isRed, keyCount, keyPlan, label, leave, lockWant, move, newGame, overflow,
   rank, rankLabel, scout, scoutCost, stop, suit, take, takers, vaultCell, viewOf, visibleCards, whereIs,
 } from '../../core/engine'
@@ -58,11 +58,17 @@ const DIRS = ['up', 'down', 'left', 'right']
 // ---------- the stage: every card lives in ONE coordinate space, so it slides, flips and flies off instead of jumping ----------
 const CW = 62, CH = 88
 // Satchel on the left (key row, pile, waiting, gone), the map beside it, the hand along the bottom; each zone has a
-// caption above it. The actions sit beside the whole stage (FitScreen's aside).
-const CAP = 22 // caption height above the satchel and the map
+// caption above it, the map's saying what to do now. No action panel: the map is played by clicking it, and inside a
+// biome the usable actions stand in the scene (the dig bar).
+const CAP = 40 // caption height above the satchel and the map (the map's is the coach: up to two lines)
 const SAT = { x: 0, y: CAP, w: 320 }
 const MAP0 = { x: 344, y: CAP } // the map zone's top-left corner
-const MAP = { x: 52, y: 46, px: 80, py: 112, w: 326, h: 404 } // cells inside the map zone
+/** map regions are drawn this much bigger than cards elsewhere */
+const MK = 1.25
+const MCW = CW * MK, MCH = CH * MK
+const MAP_W = 620, MAP_H = 500
+// cells inside the map zone, the 3×3 grid centred in it
+const MAP = { x: (MAP_W - 3 * MCW - 52) / 2, y: (MAP_H - 3 * MCH - 56) / 2, px: MCW + 26, py: MCH + 28, w: MAP_W, h: MAP_H }
 const KEYROW = { x: 18, y: CAP + 20, w: 284 }
 const PILE = { x: 18, y: CAP + 154 }
 const WAIT = { x: 102, y: CAP + 154 }
@@ -71,7 +77,12 @@ const HANDZ = { y: CAP + MAP.h + 14, h: 140 }
 const STAGE = { w: MAP0.x + MAP.w + 2, h: HANDZ.y + HANDZ.h + 6 }
 // where a new row/column enters from for each move direction (up, down, left, right)
 const SLIDE = [[0, -MAP.py], [0, MAP.py], [-MAP.px, 0], [MAP.px, 0]]
+/** a map cell's top-left corner, as drawn (MK times a card) */
 const cellPos = (i: number) => ({ x: MAP0.x + MAP.x + (i % 3) * MAP.px, y: MAP0.y + MAP.y + Math.floor(i / 3) * MAP.py })
+/** where a map card is placed: it scales about its middle, so its unscaled box sits inside the cell */
+const cardAt = (i: number) => { const c = cellPos(i); return { x: c.x + (MCW - CW) / 2, y: c.y + (MCH - CH) / 2 } }
+/** the cell each move direction (up, down, left, right) leads to */
+const STEP_CELL = [1, 7, 3, 5]
 // While you dig you are inside the region, looking over the explorer's shoulder: the biome fills the map with the
 // ground stretching up to a high horizon, the explorer stands big in the bottom-right corner, seen from behind (head
 // and shoulders, cut off by the map's edge), and the card you just turned up (a hostile card, a key card, or loot)
@@ -84,7 +95,9 @@ const FOE_CARD = { x: MAP0.x + 34, y: MAP0.y + 90 }
 const WEAPON = { x: 14, y: 24 }
 const HERO = { left: MAP.w - 160, top: MAP.h - 180, h: 270 }
 /** how deep you have dug and the loot so far: a panel, with the loot fanned out under it */
-const LOOT = { x: 12, y: 300, w: 146 }
+const LOOT = { x: 12, y: MAP.h - 104, w: 146 }
+/** the usable dig actions: a dock on the ground at the bottom, between the loot (left) and the explorer (right) */
+const DIGBAR = { x: LOOT.x + LOOT.w + 22, w: MAP.w - (LOOT.x + LOOT.w + 22) - 176, bottom: 14 }
 const lootPos = (j: number, n: number) => ({ x: MAP0.x + LOOT.x + j * (n > 1 ? Math.min(24, (LOOT.w - CW) / (n - 1)) : 0), y: MAP0.y + LOOT.y })
 /** a fight plays before it happens: your card flies into the hostile card, which shakes as it is hit */
 const STRIKE = { fly: 0.45, shake: 0.35 }
@@ -129,6 +142,8 @@ interface Placed {
   stash?: number
   /** seconds before the card comes into sight or fades out */
   delay?: number
+  /** drawn at map size (MK) */
+  big?: boolean
 }
 function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   // a card on its way out (spent, claimed, fallen off) keeps its old props while it animates: it must not be clickable,
@@ -138,12 +153,12 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   return (
     <motion.div
       className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${p.hit ? 'hit' : ''} ${onClick ? 'clickable' : ''}`}
-      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), opacity: 0 }}
+      initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), ...(p.big ? { scale: MK } : {}), opacity: 0 }}
       animate={p.stash === -1
         ? { x: INTO_PACK.x[1], y: INTO_PACK.y[1], scale: INTO_PACK.scale[1], opacity: 0 }
         : p.stash !== undefined
         ? { x: [p.x, ...INTO_PACK.x], y: [p.y, ...INTO_PACK.y], scale: [1, ...INTO_PACK.scale], opacity: [1, 1, 1, 0] }
-        : { x: p.hit ? [p.x, p.x - 7, p.x + 7, p.x - 4, p.x + 4, p.x] : p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: 1 }}
+        : { x: p.hit ? [p.x, p.x - 7, p.x + 7, p.x - 4, p.x + 4, p.x] : p.x, y: p.y, opacity: p.hidden ? 0 : 1, scale: p.big ? MK : 1 }}
       variants={{
         exit: (c: { dest: (id: number) => { x: number; y: number } | null; dir: number | null }) => {
           // a card that scrolls off the map keeps sliding the way the window moves; spent cards fly to the "gone" pile
@@ -207,8 +222,8 @@ function coachText(s: State, pending: Pending, tipOn: boolean): { title: string;
   if (s.over) return null // the result box says it
   const extra = overflow(s)
   if (extra) return { title: `Hand full: discard ${extra}`, line: <>Your hand holds {s.limit}. Click the card you need least.</> }
-  if (pending?.kind === 'move') return { title: `Move ${DIRS[pending.d]}`, line: <>Click a hand card to <B>eat</B>: the one you need least. <B>Esc</B> cancels.</> }
-  if (pending?.kind === 'scout') return { title: 'Zoom OUT', line: <>Click a hand card to pay. The whole map turns face-up.</> }
+  if (pending?.kind === 'move') return { title: `Move ${DIRS[pending.d]}`, line: <>Click a hand card to <B>eat</B>: the one you need least. Click the map to cancel.</> }
+  if (pending?.kind === 'scout') return { title: 'Zoom OUT', line: <>Click a hand card to pay. The whole map turns face-up. Click the map to cancel.</> }
   if (d && d.found >= 0) {
     const needs = lockWant(s, visibleCards(s)).want.has(rank(d.found))
     return {
@@ -220,7 +235,7 @@ function coachText(s: State, pending: Pending, tipOn: boolean): { title: string;
     return {
       title: `Hostile ${label(d.hostile)}`,
       line: fighters(s).length
-        ? <>Beat it with a <B>higher {SUITS[suit(d.hostile)]}</B> (click a glowing card), or flee.</>
+        ? <>Beat it with a <B>higher {SUITS[suit(d.hostile)]}</B> (click a glowing card in your hand), or flee.</>
         : <>You hold no {SUITS[suit(d.hostile)]} higher: <B>flee</B> (you lose the loot and 1 random card).</>,
     }
   }
@@ -236,22 +251,33 @@ function coachText(s: State, pending: Pending, tipOn: boolean): { title: string;
   }
   const here = s.gc[4]
   const title = s.steps === 0 ? 'How to start' : 'Your move'
-  const walk = <>Move with the arrows (each step <B>eats a card</B>){canDig(s) ? <>, or zoom in to dig {lbl(here)}</> : null}.</>
-  if (canFinish(s)) return { title, line: <>You hold your key on the finish card: <B>Finish</B>!</> }
-  if (canClaim(s)) return { title, line: <>Claim the key card {lbl(here)}: show your {lbl(s.hand[claimers(s)[0]])} (you keep it).</> }
+  const walk = <>Click a card next to you to move (each step <B>eats a card</B>){canDig(s) ? <>, or click {lbl(here)} to dig it</> : null}.</>
+  if (canFinish(s)) return { title, line: <>You hold your key on the finish card: click it to <B>finish</B>!</> }
+  if (canClaim(s)) return { title, line: <>Click the key card {lbl(here)} to claim it: you show your {lbl(s.hand[claimers(s)[0]])} (and keep it).</> }
   if (isKeyCard(s, here)) return { title, line: <>Key card {lbl(here)} opens with any <B>{rankLabel(rank(here))}</B>, and you hold none. {walk}</> }
   if (keyPlan(s).dead) return { title, line: <>Your key can no longer be built: every run of {RUN} needs a {sym} that is gone.</> }
   if (hasKey(s)) return { title, line: vaultCell(s) >= 0 ? <>You hold your key: walk to the finish card <B>A{sym}</B>.</> : <>You hold your key: find <B>A{sym}</B> (zooming out is free).</> }
   return { title, line: walk }
 }
 
-function Coach({ s, pending, tipOn }: { s: State; pending: Pending; tipOn: boolean }) {
-  const c = coachText(s, pending, tipOn)
-  if (!c) return null
+/** one of a biome's actions, in the dock on its ground: an icon, the action, what it costs or gives, and its key */
+function DigButton({ kind = '', glow, icon, label, sub, hotkey, onClick }: { kind?: string; glow: boolean; icon: string; label: string; sub: string; hotkey: string; onClick: () => void }) {
   return (
-    <div className={`coach ${s.dig && s.dig.hostile >= 0 ? 'alert' : ''}`} aria-live="polite">
-      <div className="coach-title">{c.title}</div>
-      <div className="coach-line">{c.line}</div>
+    <button className={`digbtn ${kind} ${glow ? 'glow' : ''}`} onClick={onClick} aria-keyshortcuts={hotkey === 'Space' ? 'Space' : hotkey}>
+      <kbd>{hotkey}</kbd>
+      <span className="digbtn-icon" aria-hidden="true">{icon}</span>
+      <span className="digbtn-label">{label}</span>
+      <small>{sub}</small>
+    </button>
+  )
+}
+
+/** the map's caption: what to do now, in a title and one line (with Hint on, the suggestion takes the line) */
+function Coach({ s, pending, tipOn, tip, style }: { s: State; pending: Pending; tipOn: boolean; tip: string | null; style: CSSProperties }) {
+  const c = coachText(s, pending, tipOn)
+  return (
+    <div className={`zcap coach ${s.dig && s.dig.hostile >= 0 ? 'alert' : ''}`} style={style} aria-live="polite">
+      {c && <><b className="coach-title">{c.title}</b> <span className="coach-line">{tip ? <>💡 {tip}</> : c.line}</span></>}
     </div>
   )
 }
@@ -259,7 +285,7 @@ function Coach({ s, pending, tipOn }: { s: State; pending: Pending; tipOn: boole
 function Intro({ onClose }: { onClose: () => void }) {
   return (
     <HowToPlay onClose={onClose} close="Got it — let me play">
-      <p className="muted">The strip “Your {'♣'}” shows where each card of your suit is: <span className="klegend"><i className="kchip pack">in key row</i><i className="kchip table">in sight</i><i className="kchip unknown">hidden</i><i className="kchip gone">gone</i></span>. The box beside the table always says what to do next; <B>Hint</B> (💡) suggests a move and shows the odds while you dig, and <B>↶</B> undoes a move.</p>
+      <p className="muted">The strip “Your {'♣'}” shows where each card of your suit is: <span className="klegend"><i className="kchip pack">in key row</i><i className="kchip table">in sight</i><i className="kchip unknown">hidden</i><i className="kchip gone">gone</i></span>. On the map, <span className="klegend"><i className="legend-fog" /> is fog (unexplored)</span> and <ExplorerIcon world="earth" size={18} /> is you. Click a card next to you to move, the middle card to dig, ⊖ to zoom out; inside a biome its actions stand in the scene. The line above the map always says what to do next; <B>Hint</B> (💡) suggests a move, and <B>↶</B> undoes a move.</p>
       <p className="muted">Keyboard: <B>arrows</B> move, <B>1–9, 0</B> pick a hand card (left to right), <B>Space</B> dig or flip, <B>S</B> stop, <B>F</B> flee, <B>L</B> leave a key card, <B>Z</B> zoom out, <B>U</B> undo, <B>N</B> new game, <B>Esc</B> cancel.</p>
       <p className="muted">Every deal can be won or lost: a careful player wins about half the time. Your <B>record</B> counts the games you play yourself (no Undo, no Hint). <B>Daily deal</B> (on the main menu) is the same deal for everyone today.</p>
     </HowToPlay>
@@ -378,7 +404,6 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     const fill = STASH.fly + STASH.gap * Math.max(0, s.dig!.loot.length - 1)
     setAct({ kind: 'stash', seconds: FLAP.open + fill + FLAP.close, done: () => setAct({ kind: 'walk', seconds: WALK_OFF, done: () => push(stop(s)) }) })
   }
-  const doAdvice = (a: Advice) => a.kind === 'fight' ? strike(a.i) : a.kind === 'flee' ? runAway() : a.kind === 'stop' ? stopDig() : push(applyAdvice(s, a), a.kind === 'move' ? a.d : null)
 
   const clickHand = (i: number) => {
     if (s.over || act) return
@@ -388,11 +413,15 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     if (pending?.kind === 'move') return push(move(s, pending.d, i), pending.d)
     if (pending?.kind === 'scout') return push(scout(s, [i]))
   }
+  /** the map is played by clicking it: a card next to you (not a corner) to move there, the middle card to dig, claim or
+   *  finish; while a move waits for its card to eat, another neighbour changes the way (the same one cancels it) */
+  const canPick = !s.over && !over && !s.dig && !act && (!pending || pending.kind === 'move')
+  const clickable = (i: number) => canPick && (STEP_CELL.includes(i) ? canMove(s) : i === 4 && !pending && (canDig(s) || canClaim(s) || canFinish(s)))
   const clickCell = (i: number) => {
-    if (!ready) return
-    const d = [-1, 0, -1, 2, -1, 3, -1, 1, -1][i]
+    if (!clickable(i)) return
+    const d = STEP_CELL.indexOf(i)
     if (i === 4) { if (canFinish(s)) push(finish(s)); else if (canClaim(s)) push(claim(s)); else if (canDig(s)) push(dig(s)) }
-    else if (d >= 0 && canMove(s)) setPending({ kind: 'move', d })
+    else setPending(pending?.kind === 'move' && pending.d === d ? null : { kind: 'move', d })
   }
 
   // ----- place every card on the stage -----
@@ -408,7 +437,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const view = viewOf(s)
   s.gc.forEach((c, i) => {
     if (c < 0) return
-    const { x, y } = cellPos(i)
+    const { x, y } = cardAt(i)
     const up = s.gup[i]
     const region = up && c !== s.vault && !isKeyCard(s, c)
     const danger = region && !s.gdone[i] ? dangerOf(view, suit(c)) : undefined
@@ -417,9 +446,10 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
       : isKeyCard(s, c) ? `🔒 any ${rankLabel(rank(c))}${s.hand.some(x => rank(x) === rank(c)) ? ' ✓' : ''}`
       : s.gdone[i] ? '✓' : `dig ${depthOf(c)} · ${danger}`
     placed.push({
-      id: c, x, y, zone: 'map', dir, down: !up, region, fog: !up, hidden: !!s.dig, dim: s.gdone[i] > 0 && !s.dig, delay: arriving ? ARRIVE : 0, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
-      glow: (adv?.kind === 'dig' || adv?.kind === 'finish' || adv?.kind === 'claim') && i === 4,
-      tag, onClick: ready && i !== 4 ? () => clickCell(i) : ready && (canDig(s) || canClaim(s) || canFinish(s)) && i === 4 ? () => clickCell(i) : undefined,
+      id: c, x, y, zone: 'map', big: true, dir, down: !up, region, fog: !up, hidden: !!s.dig, dim: s.gdone[i] > 0 && !s.dig, delay: arriving ? ARRIVE : 0, turned: up && s.gdone[i] > 0, tagCls: danger && `t-${danger}`,
+      glow: ((adv?.kind === 'dig' || adv?.kind === 'finish' || adv?.kind === 'claim') && i === 4) || (adv?.kind === 'move' && STEP_CELL[adv.d] === i),
+      selected: pending?.kind === 'move' && STEP_CELL[pending.d] === i,
+      tag, onClick: clickable(i) ? () => clickCell(i) : undefined,
     })
   })
   if (s.dig) {
@@ -454,12 +484,6 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   })
   const dest = (id: number) => (s.gone.includes(id) ? { x: GONE.x + 120, y: GONE.y } : s.keys.includes(id) ? { x: KEYROW.x + 120, y: KEYROW.y } : s.hand.includes(id) ? { x: 300, y: HANDZ.y + 30 } : null)
 
-  const arrows = [
-    { d: 0, ch: '▲', name: 'north', style: { left: MAP0.x + MAP.w / 2 - 20, top: MAP0.y + 8 } },
-    { d: 1, ch: '▼', name: 'south', style: { left: MAP0.x + MAP.w / 2 - 20, top: MAP0.y + MAP.h - 40 } },
-    { d: 2, ch: '◀', name: 'west', style: { left: MAP0.x + 6, top: MAP0.y + MAP.h / 2 - 18 } },
-    { d: 3, ch: '▶', name: 'east', style: { left: MAP0.x + MAP.w - 46, top: MAP0.y + MAP.h / 2 - 18 } },
-  ]
   const here = cellPos(4)
   // entering a biome: digging the middle region dives into its card (worlds with biome colours, see biome.tsx)
   const biome = s.dig ? suit(s.gc[4]) : null
@@ -475,7 +499,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     const r = stageRef.current?.getBoundingClientRect()
     if (!r) return null
     const k = r.width / STAGE.w, at = cellPos(4)
-    return { left: r.left + at.x * k, top: r.top + at.y * k, width: CW * k, height: CH * k }
+    return { left: r.left + at.x * k, top: r.top + at.y * k, width: MCW * k, height: MCH * k }
   }
   const goneSorted = [...s.gone].sort((a, b) => suit(a) - suit(b) || rank(a) - rank(b))
   const red = s.S === 1 || s.S === 2
@@ -559,64 +583,12 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <span className={`kchip vault ${whereIs(s, s.vault)}`} title="the finish card">A</span>
         </div>
 
-        {/* beside the board: the map's key, what to do now, the hint's suggestion, then the usable actions (or the result) */}
-        <FitScreen w={STAGE.w} h={STAGE.h} aside={<>
-          {s.dig ? (
-            // inside a biome the map's key has nothing to point at; this biome's rule takes its place
-            <div className="digrule">
-              <div className="digrule-title">Biome suit</div>
-              <div className={`big-suit ${isRed(s.gc[4]) ? 'redtxt' : ''}`}>{SUITS[suit(s.gc[4])]}</div>
-              <div className="digrule-line">hostile here · defend with a higher {suitTxt(suit(s.gc[4]))}</div>
-            </div>
-          ) : (
-            <div className="mapkey">
-              <span><i className="legend-fog" /> fog (unexplored)</span>
-              <span><ExplorerIcon world={world} /> you are here</span>
-            </div>
-          )}
-          <Coach s={s} pending={pending} tipOn={hint} />
-          {tip && !s.over && (
-            <div className="advice">
-              <b>Suggestion:</b> {tip.text}
-              <button className="small" onClick={() => adv && doAdvice(adv)}>Do it</button>
-            </div>
-          )}
-          {s.over ? (
-          // while the ending dialog is open it shows the result; this box takes over once you close it
-          !endOpen && <div className="endbox">
-            {endText}
-            <div className="endbtns">
-              <button className="big" onClick={newDeal}>New game</button>
-              {meta.daily && <button onClick={share}>{copied ? 'Copied!' : 'Copy result'}</button>}
-              <button onClick={replay}>Replay this deal</button>
-              <button onClick={undo}>Undo last move</button>
-            </div>
-          </div>
-        ) : (
-          // only what you can do right now
-          <div className="actions" inert={!!act}>
-            {!s.dig && ready && <>
-              {canDig(s) && <button className={`big ${adv?.kind === 'dig' ? 'glow' : ''}`} onClick={() => push(dig(s))}>Zoom IN <small>flip the first card</small></button>}
-              {canClaim(s) && <button className={`big ${adv?.kind === 'claim' ? 'glow' : ''}`} onClick={() => push(claim(s))}>Claim key card</button>}
-              {canFinish(s) && <button className={`big ${adv?.kind === 'finish' ? 'glow' : ''}`} onClick={() => push(finish(s))}>Finish</button>}
-              {canScout(s) && <button className={adv?.kind === 'scout' ? 'glow' : ''} onClick={zoomOut}>Zoom OUT <small>{sCost ? 'pay 1 card' : 'free'}</small></button>}
-            </>}
-            {s.dig && <>
-              {canFlip(s) && <button className={`big ${adv?.kind === 'flip' ? 'glow' : ''}`} onClick={() => push(flip(s))}>Flip next <small>{s.dig.depth - s.dig.flips} left</small></button>}
-              {canStop(s) && <button className={adv?.kind === 'stop' ? 'glow' : ''} onClick={stopDig}>Stop <small>keep the loot</small></button>}
-              {hostile && canFlee(s) && <button className={`danger ${fightSet.size ? '' : 'urgent'} ${adv?.kind === 'flee' ? 'glow' : ''}`} onClick={runAway}>Flee <small>lose the loot + 1 random card</small></button>}
-              {found && canLeave(s) && <button className={`big ${adv?.kind === 'leave' ? 'glow' : ''}`} onClick={() => push(leave(s))}>Leave it waiting</button>}
-            </>}
-            {pending && <button onClick={() => setPending(null)}>Cancel <small>Esc</small></button>}
-          </div>
-        )}
-        </>}>
+        <FitScreen w={STAGE.w} h={STAGE.h}>
         <div className="stage" ref={stageRef} style={{ width: STAGE.w, height: STAGE.h }}>
           <div className="zcap" style={{ left: SAT.x, width: SAT.w }}>Satchel</div>
-          <div className="zone" style={{ left: SAT.x, top: SAT.y, width: SAT.w, height: MAP.h }} />          <div className="zcap" style={{ left: MAP0.x, width: MAP.w }}>
-            {s.dig ? <>Digging {label(s.gc[4])} · up to {s.dig.depth} cards · <span className={isRed(s.gc[4]) ? 'redtxt' : ''}>{SUITS[suit(s.gc[4])]}</span> hostile</> : <>Map · dig the middle card<Fl t={flavour?.dig} /></>}
-          </div>
-          <div className="zone mapzone" style={{ left: MAP0.x, top: MAP0.y, width: MAP.w, height: MAP.h }}>
+          <div className="zone" style={{ left: SAT.x, top: SAT.y, width: SAT.w, height: MAP.h }} />          {/* what to do now (with Hint on, the suggestion): the map is played by clicking, so this line is its guide */}
+          <Coach s={s} pending={pending} tipOn={hint} tip={tip && !s.over ? tip.text : null} style={{ left: MAP0.x, width: MAP.w }} />
+          <div className="zone mapzone" style={{ left: MAP0.x, top: MAP0.y, width: MAP.w, height: MAP.h }} onClick={() => { if (pending) setPending(null) }}>
             <PlanetMap world={world} />
             {/* while you dig, the map turns into the region's biome: its sky and its ground, framed by the map */}
             <AnimatePresence>
@@ -642,6 +614,13 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                           action={act?.kind === 'fight' || act?.kind === 'flee' ? act.kind : undefined} seconds={act?.seconds} />
                       )}
                     </AnimatePresence>
+                    {/* what you can do here, on the ground above the loot (fight: click a glowing card in your hand) */}
+                    <div className={`actions digbar ${act ? 'busy' : ''}`} inert={!!act} style={{ left: DIGBAR.x, bottom: DIGBAR.bottom, width: DIGBAR.w }}>
+                      {canFlip(s) && <DigButton kind="big" glow={adv?.kind === 'flip'} icon="⤵" label="Flip next" sub={`${s.dig.depth - s.dig.flips} left`} hotkey="Space" onClick={() => push(flip(s))} />}
+                      {canStop(s) && <DigButton glow={adv?.kind === 'stop'} icon="🎒" label="Stop" sub="keep the loot" hotkey="S" onClick={stopDig} />}
+                      {hostile && canFlee(s) && <DigButton kind={fightSet.size ? 'danger' : 'danger urgent'} glow={adv?.kind === 'flee'} icon="🏃" label="Flee" sub="lose loot + 1 card" hotkey="F" onClick={runAway} />}
+                      {found && canLeave(s) && <DigButton kind="big" glow={adv?.kind === 'leave'} icon="⏳" label="Leave it" sub="waiting" hotkey="L" onClick={() => push(leave(s))} />}
+                    </div>
                     {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up (not after a fight), runs off the side when you flee, and takes the loot in its backpack when you stop */}
                     <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act && act.kind !== 'fight' && act.kind !== 'look' ? act.kind : `dig ${walks}`} toward={[0, 0]} delay={0}
                       leave={act?.kind === 'flee' ? { pace: 'run', seconds: RUN_OFF } : act?.kind === 'walk' ? { pace: 'walk', seconds: WALK_OFF } : undefined}
@@ -655,10 +634,15 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <div className="zone label" style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h }}>
             <span>Your hand<Fl t={flavour?.hand} /> ({s.hand.length}/{s.limit}): food, weapons, and ranks that open key cards</span>
           </div>
-          {!s.dig && <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6 }} />}
-          {!s.dig && arrows.map(a => (
-            <button key={a.d} className={`arrow ${adv?.kind === 'move' && adv.d === a.d ? 'glow' : ''} ${pending?.kind === 'move' && pending.d === a.d ? 'on' : ''}`} style={a.style} disabled={!ready || !canMove(s)} onClick={() => setPending({ kind: 'move', d: a.d })} aria-label={`Move ${a.name}`} title={`Move ${a.name} (eat 1 card)`}>{a.ch}</button>
-          ))}
+          {!s.dig && <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6, width: MCW + 12, height: MCH + 12 }} />}
+          {/* the one control on the map: zooming out has no card to click */}
+          {!s.dig && !s.over && canScout(s) && (
+            <button className={`zoomout ${adv?.kind === 'scout' ? 'glow' : ''} ${pending?.kind === 'scout' ? 'on' : ''}`} style={{ left: MAP0.x + MAP.w - 62, top: MAP0.y + 8 }}
+              disabled={!!act || (!ready && pending?.kind !== 'scout')} onClick={() => (pending?.kind === 'scout' ? setPending(null) : zoomOut())}
+              aria-label={`Zoom out: reveal the map (${sCost ? 'pay 1 card' : 'free'})`} title={`Zoom OUT: reveal the whole map (${sCost ? 'pay 1 card' : 'free'}, Z)`}>
+              ⊖<small>{sCost ? '1 card' : 'free'}</small>
+            </button>
+          )}
           <div className="pilecard back" style={{ left: PILE.x, top: PILE.y }}>{s.pile.length}</div>
           <div className="piletxt" style={{ left: PILE.x, top: PILE.y + CH + 4 }}>pile</div>
           {!s.wait.length && <div className="gap" style={{ position: 'absolute', left: WAIT.x, top: WAIT.y }} />}
@@ -674,8 +658,20 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <AnimatePresence custom={{ dest, dir }}>
             {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
+          {/* the result, over the map, once you close the ending dialog to look at the board */}
+          {s.over && !endOpen && (
+            <div className="endbox endbanner" style={{ left: MAP0.x + 10, top: MAP0.y + MAP.h - 150, width: MAP.w - 20 }}>
+              {endText}
+              <div className="endbtns">
+                <button className="big" onClick={newDeal}>New game</button>
+                {meta.daily && <button onClick={share}>{copied ? 'Copied!' : 'Copy result'}</button>}
+                <button onClick={replay}>Replay this deal</button>
+                <button onClick={undo}>Undo last move</button>
+              </div>
+            </div>
+          )}
           {/* it appears once the cards are down (dealt, or back on the map after a dig), standing on the region it is on */}
-          {dealt && !s.dig && <Explorer world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={CARD_FLY} />}
+          {dealt && !s.dig && <Explorer world={world} left={here.x + MCW - 20} top={here.y - 44} height={52} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={CARD_FLY} />}
         </div>
         </FitScreen>
       </div>
