@@ -492,6 +492,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const walks = s.steps - (s.dig ? s.dig.loot.filter(c => suit(c) === biome).length : 0)
   // the creature you just beat, lying beaten beside the card until your next action: right after a fight the beaten
   // hostile card is the last of the loot (any flip after it adds loot, a new hostile or a key card)
+  // an explored middle region lies sideways (StageCard): the explorer stands on that card's corner, not the upright one's
+  const heresTurned = s.gup[4] && s.gdone[4] > 0
   const lastLoot = s.dig && s.dig.hostile < 0 && s.dig.found < 0 ? s.dig.loot.at(-1) ?? -1 : -1
   const beaten = lastLoot >= 0 && suit(lastLoot) === biome ? lastLoot : -1
   /** the middle card on screen, where the camera dives in and rises out; the stage may be scaled down to fit (see Fit) */
@@ -671,7 +673,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             </div>
           )}
           {/* it appears once the cards are down (dealt, or back on the map after a dig), standing on the region it is on */}
-          {dealt && !s.dig && <Explorer world={world} left={here.x + MCW - 20} top={here.y - 44} height={52} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={CARD_FLY} />}
+          {dealt && !s.dig && <Explorer world={world} left={here.x + (heresTurned ? (MCW + MCH * 0.88) / 2 : MCW) - 20} top={here.y + (heresTurned ? (MCH - MCW * 0.88) / 2 : 0) - 44} height={52} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={CARD_FLY} />}
         </div>
         </FitScreen>
       </div>

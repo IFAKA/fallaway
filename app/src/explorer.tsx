@@ -105,14 +105,22 @@ const LOOKS: Record<WorldId, Look> = {
 const SWING = { originX: '50%', originY: '0%', transformBox: 'fill-box' } as const
 const STEP = { duration: 0.6, ease: 'easeInOut' } as const
 
-/**
- * The backpack seen from behind: straps over the shoulders, the bag, a flap with a buckle, a front pocket.
- * `stash` > 0: for that many seconds the flap flips up (showing the bag's opening), stays open, then closes.
- */
-function Pack({ bag, flap, pocket, stash = 0 }: Look['pack'] & { stash?: number }) {
+/** The backpack seen from behind: the bag, its opening and a front pocket (its flap is PackFlap). */
+function Pack({ bag, pocket }: Look['pack']) {
   return <>
     <rect x={7.4} y={21.4} width={13.2} height={11} rx={3.4} fill={bag} /><Shade cx={14} cy={26.9} rx={6.6} ry={5.5} />
     <ellipse {...NO} cx={PACK_MOUTH.x} cy={PACK_MOUTH.y} rx={5} ry={1.5} fill={INK} />
+    <rect x={9.6} y={28} width={8.8} height={3.8} rx={1.4} fill={pocket} strokeWidth={0.8} />
+  </>
+}
+
+/**
+ * The backpack's flap with its buckle. `stash` > 0: for that many seconds it flips up (showing the bag's opening),
+ * stays open, then closes. Drawn over the head: seen from behind the pack is nearer than the head, and the open
+ * flap rises in front of it.
+ */
+function PackFlap({ flap, stash = 0 }: { flap: string; stash?: number }) {
+  return (
     <motion.g
       style={{ originX: '50%', originY: '0%', transformBox: 'fill-box' }}
       animate={stash > 0 ? { scaleY: [1, -1, -1, 1] } : { scaleY: 1 }}
@@ -121,8 +129,7 @@ function Pack({ bag, flap, pocket, stash = 0 }: Look['pack'] & { stash?: number 
       <path d="M7.6 25V23.6q0 -2.2 2.2 -2.2h8.4q2.2 0 2.2 2.2V25q-6.4 2.4 -12.8 0z" fill={flap} />
       <rect x={13} y={24.6} width={2} height={2.4} rx={0.5} fill="#f2c230" strokeWidth={0.7} />
     </motion.g>
-    <rect x={9.6} y={28} width={8.8} height={3.8} rx={1.4} fill={pocket} strokeWidth={0.8} />
-  </>
+  )
 }
 
 /** a sword in the hand at the end of an arm hanging from the shoulder at 7, 21 */
@@ -149,8 +156,9 @@ function Figure({ world, walking, behind = false, stash = 0, swing = 0 }: { worl
     {!swing && leftArm}
     <motion.rect x={19} y={21} width={4} height={8.6} rx={2} fill={L.arms} style={SWING} animate={leg(22)} transition={STEP} />
     <rect x={8.4} y={19.6} width={11.2} height={11.4} rx={4.4} fill={L.suit} /><Shade cx={14} cy={25.3} rx={5.6} ry={5.7} />
-    {behind ? <Pack {...L.pack} stash={stash} /> : L.front}
+    {behind ? <Pack {...L.pack} /> : L.front}
     {behind ? L.headBack : L.head}
+    {behind && <PackFlap flap={L.pack.flap} stash={stash} />}
     {/* raised over the head as it swings, so drawn last */}
     {swing > 0 && <g className="sword-swing" style={{ animationDuration: `${swing}s` }}>{leftArm}<Sword /></g>}
   </g>
@@ -186,10 +194,10 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
   return (
     <motion.div
       className={`explorer ${leave ? 'leaving' : ''}`}
-      style={{ left, top }}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1, x: leave ? -height * 1.3 : 0 }}
-      transition={{ opacity: { duration: 0.3, ease: 'easeOut', delay }, x: { duration: leave?.seconds ?? 0.6, ease: leave?.pace === 'walk' ? 'easeInOut' : 'easeIn' } }}
+      // left/top move with the card it stands on (an explored region turns sideways under it), in step with the card's turn
+      animate={{ opacity: 1, left, top, x: leave ? -height * 1.3 : 0 }}
+      transition={{ opacity: { duration: 0.3, ease: 'easeOut', delay }, left: { duration: 0.6, ease: 'easeInOut' }, top: { duration: 0.6, ease: 'easeInOut' }, x: { duration: leave?.seconds ?? 0.6, ease: leave?.pace === 'walk' ? 'easeInOut' : 'easeIn' } }}
       role="img"
       aria-label={`You are here (the ${LOOKS[world].name})`}
     >
