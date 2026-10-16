@@ -212,7 +212,7 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
           : { x: [0, dx * 0.35, 0], y: [0, dy * 0.35 - 5, dy * 0.2, 0] }}
         transition={swing
           ? { duration: swing, times: [0, 0.3, 0.5, 0.75, 1], ease: 'easeOut' }
-          : { duration: stash || leave?.seconds || (back ? 0.8 : 0.6), ease: leave ? 'linear' : 'easeInOut', delay }}
+          : { duration: stash || leave?.seconds || (back ? 0.8 : 0.6), ease: leave ? 'linear' : 'easeInOut' }}
       >
         <svg viewBox={`0 0 ${VW} ${VH}`} width={(height * VW) / VH} height={height} style={{ transform: dx < 0 ? 'scaleX(-1)' : undefined }}>
           {/* from behind it bobs as it walks; swinging arms that close up would look like flapping */}

@@ -94,6 +94,8 @@ const RUN_OFF = 0.6
  *  explorer walks off across the field (as when fleeing, at a walk); then the camera rises out */
 const STASH = { fly: 0.7, gap: 0.18 }
 const WALK_OFF = 1.3
+/** how long a card takes to fly to its place (dealt from the pile, or a move sliding the map) */
+const CARD_FLY = 0.6
 /** dug to the bottom: how long the last card (or the beaten creature) stays in view before the loot is stashed */
 const LOOK = 0.7
 /** where the backpack's opening is on the stage, seen from behind (explorer.tsx) */
@@ -157,7 +159,7 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
         ? { duration: STASH.fly, delay: FLAP.open + p.stash * STASH.gap, times: [0, 0.6, 1], ease: ['easeOut', 'easeIn'], opacity: { duration: STASH.fly, delay: FLAP.open + p.stash * STASH.gap, times: [0, 0.6, 0.9, 1] } }
         : p.hit
         ? { x: { delay: STRIKE.fly, duration: STRIKE.shake } }
-        : { duration: 0.6, ease: [0.4, 0, 0.2, 1], delay: p.delay }}
+        : { duration: CARD_FLY, ease: [0.4, 0, 0.2, 1], delay: p.delay }}
       onClick={onClick}
     >
       {/* an explored region lies sideways, as on the real table; scaled so two turned neighbours don't overlap */}
@@ -672,7 +674,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
           <AnimatePresence custom={{ dest, dir }}>
             {dealt && placed.map(p => <StageCard key={p.id} p={p} world={world} />)}
           </AnimatePresence>
-          {dealt && !s.dig && <Explorer world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={0} />}
+          {/* it appears once the cards are down (dealt, or back on the map after a dig), standing on the region it is on */}
+          {dealt && !s.dig && <Explorer world={world} left={here.x + 40} top={here.y - 16} step={s.gc[4]} toward={dir !== null ? SLIDE[dir] : null} delay={CARD_FLY} />}
         </div>
         </FitScreen>
       </div>
