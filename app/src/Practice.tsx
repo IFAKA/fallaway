@@ -131,6 +131,8 @@ const INTO_PACK = {
 const STRIDE = 75
 /** the board swaps to the biome (and back to the map) at the end of the camera's dive, under the colour wash (biome.tsx) */
 const ARRIVE = reducedMotion ? 0 : DIVE_SECONDS
+/** hand cards are drawn this much bigger while the hand is over its limit */
+const OVER_K = 1.06
 const handPos = (k: number, n: number) => ({ x: 18 + k * (n > 1 ? Math.min(76, (STAGE.w - 36 - CW) / (n - 1)) : 76), y: HANDZ.y + 30 })
 const keyPos = (k: number, n: number) => ({ x: KEYROW.x + k * (n > 1 ? Math.min(68, (KEYROW.w - CW) / (n - 1)) : 68), y: KEYROW.y })
 
@@ -151,6 +153,8 @@ interface Placed {
   delay?: number
   /** drawn this many times a card's size (map regions MK, the card ahead DK) */
   k?: number
+  /** a hand card you may throw away (your hand is over its limit): hovering it shows it going */
+  discard?: boolean
 }
 function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   // a card on its way out (spent, claimed, fallen off) keeps its old props while it animates: it must not be clickable,
@@ -159,7 +163,7 @@ function StageCard({ p, world }: { p: Placed; world: WorldId }) {
   const onClick = present && !p.hidden ? p.onClick : undefined
   return (
     <motion.div
-      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${p.hit ? 'hit' : ''} ${onClick ? 'clickable' : ''}`}
+      className={`acard ${p.selected ? 'selected' : ''} ${p.dim ? 'dim' : ''} ${p.turned ? 'turned' : ''} ${p.fog ? 'fog' : ''} ${p.hidden ? 'hidden' : ''} ${p.glow && present ? 'glow' : ''} ${p.hit ? 'hit' : ''} ${p.discard ? 'discard' : ''} ${onClick ? 'clickable' : ''}`}
       initial={{ ...(p.zone === 'map' && p.dir !== null ? { x: p.x + SLIDE[p.dir][0], y: p.y + SLIDE[p.dir][1] } : p.zone === 'dig' ? { x: p.x, y: p.y, scale: 0.85 } : { x: PILE.x, y: PILE.y }), ...(p.k ? { scale: p.k * (p.zone === 'dig' ? 0.85 : 1) } : {}), opacity: 0 }}
       animate={p.stash === -1
         ? { x: INTO_PACK.x[1], y: INTO_PACK.y[1], scale: INTO_PACK.scale[1], opacity: 0 }
@@ -383,6 +387,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   }
 
   const over = overflow(s)
+  /** back from a dig with more cards than the hand holds: the next clicks throw cards away */
+  const discarding = over > 0 && !s.over
   const endOpen = !!s.over && closedEnd !== s
   const won = s.over === 'win'
   const tip = hint ? advise(s) : null
@@ -485,6 +491,8 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     placed.push({
       id: c, ...(weapon ? { x: FOE_CARD.x + WEAPON.x, y: FOE_CARD.y + WEAPON.y } : handPos(k, handSorted.length)), zone: 'hand', dir, down: false,
       selected: false, glow: hlHand.has(i) || (!!pickSet && pickSet.has(i) && !hint), dim: !!pickSet && !pickSet.has(i),
+      // over the limit: the hand zooms in a little, to say the next click throws a card away
+      ...(discarding ? { k: OVER_K, discard: true } : {}),
       tag: guard ? `defends ${SUITS[suit(c)]}` : opens ? '🔑' : undefined, tagCls: guard ? 't-guard' : undefined,
       onClick: handClickable && (!pickSet || pickSet.has(i)) ? () => clickHand(i) : undefined,
     })
@@ -575,7 +583,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
         <header className="topbar">
           {bar}
           <span className="lock">Key: <b>{RUN}</b> in a row of <b className={red ? 'redtxt' : ''}>{SUITS[s.S]}</b> · finish <b className={red ? 'redtxt' : ''}>A{SUITS[s.S]}</b></span>
-          <span className={`stat ${s.hand.length <= 3 ? 'warn' : ''}`}>Hand <b>{s.hand.length}</b>/{s.limit}</span>
+          <span className={`stat ${s.hand.length <= 3 || over ? 'warn' : ''}`}>Hand <b>{s.hand.length}</b>/{s.limit}</span>
           <span className="stat">Pile <b>{s.pile.length}</b></span>
           <span className="grow" />
           <button className="icon" onClick={() => setIntro(true)} aria-label="How to play" title="How to play">?</button>
@@ -654,10 +662,23 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
             </AnimatePresence>
             {!s.dig && <Compass />}
           </div>
-          <div className="zone label" style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h }}>
-            <span>Your hand<Fl t={flavour?.hand} /> ({s.hand.length}/{s.limit}): food, weapons, and ranks that open key cards</span>
+          {/* over the limit (back from a dig with more than it holds): a red frame and a plain instruction until it is down to size */}
+          <div className={`zone label ${discarding ? 'over' : ''}`} style={{ left: 0, top: HANDZ.y - 6, width: STAGE.w, height: HANDZ.h }} role={discarding ? 'alert' : undefined}>
+            {discarding
+              ? <span><b>Too many cards ({s.hand.length}/{s.limit}): throw away {over}.</b> Click the card{over === 1 ? '' : 's'} you need least; {over === 1 ? 'it goes' : 'they go'} for good.</span>
+              : <span>Your hand<Fl t={flavour?.hand} /> ({s.hand.length}/{s.limit}): food, weapons, and ranks that open key cards</span>}
           </div>
           {!s.dig && <div className={`cellframe ${s.gup[4] && s.gdone[4] > 0 ? 'turned' : ''}`} style={{ left: cellPos(4).x - 6, top: cellPos(4).y - 6, width: MCW + 12, height: MCH + 12 }} />}
+          {/* a move or a zoom out waits for its card: say on the map how to back out (Esc, or click this) */}
+          <AnimatePresence>
+            {!s.dig && pending && (
+              <motion.button key="cancel" className="cancelhint" style={{ left: MAP0.x + MAP.w / 2, top: MAP0.y + MAP.h - 46 }}
+                initial={{ opacity: 0, y: 6, x: '-50%' }} animate={{ opacity: 1, y: 0, x: '-50%' }} exit={{ opacity: 0, y: 6, x: '-50%' }} transition={{ duration: 0.18, ease: 'easeOut' }}
+                onClick={() => setPending(null)} aria-label={`Cancel ${pending.kind === 'move' ? 'the move' : 'zoom out'} (Esc)`}>
+                <kbd>Esc</kbd> to cancel
+              </motion.button>
+            )}
+          </AnimatePresence>
           {/* the one control on the map: zooming out has no card to click */}
           {!s.dig && !s.over && canScout(s) && (
             <button className={`zoomout ${adv?.kind === 'scout' ? 'glow' : ''} ${pending?.kind === 'scout' ? 'on' : ''}`} style={{ left: MAP0.x + MAP.w - 62, top: MAP0.y + 8 }}
