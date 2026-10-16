@@ -94,6 +94,8 @@ const RUN_OFF = 0.6
  *  explorer walks off across the field (as when fleeing, at a walk); then the camera rises out */
 const STASH = { fly: 0.7, gap: 0.18 }
 const WALK_OFF = 1.3
+/** dug to the bottom: how long the last card (or the beaten creature) stays in view before the loot is stashed */
+const LOOK = 0.7
 /** where the backpack's opening is on the stage, seen from behind (explorer.tsx) */
 const PACK = { x: MAP0.x + HERO.left + (PACK_MOUTH.x / PACK_MOUTH.h) * HERO.h, y: MAP0.y + HERO.top + (PACK_MOUTH.y / PACK_MOUTH.h) * HERO.h }
 /** a card going into the backpack: up beside the explorer's shoulder at a size that fits the opening (clear of its
@@ -297,13 +299,17 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   const stageRef = useRef<HTMLDivElement>(null)
   const [dir, setDir] = useState<number | null>(null)
   /** a fight or a flee playing out before it is applied (see strike, runAway); input waits for it, then `done` applies it */
-  const [act, setAct] = useState<({ kind: 'fight'; card: number } | { kind: 'flee' | 'stash' | 'walk' }) & { seconds: number; done: () => void } | null>(null)
+  const [act, setAct] = useState<({ kind: 'fight'; card: number } | { kind: 'flee' | 'stash' | 'walk' | 'look' }) & { seconds: number; done: () => void } | null>(null)
+  /** a dig the engine just ended by digging to the bottom (the last card turned up as loot, or the last hostile beaten),
+   *  shown as it stood with the cards it gave you as its loot, while they go into the backpack and you walk off, as when
+   *  you stop (display only: the game's state already has the dig over) */
+  const [outro, setOutro] = useState<State | null>(null)
   useEffect(() => {
     if (!act) return
     const t = window.setTimeout(() => { setAct(null); act.done() }, act.seconds * 1000)
     return () => clearTimeout(t)
   }, [act])
-  const s = history[history.length - 1]
+  const s = outro ?? history[history.length - 1]
 
   useEffect(() => { try { localStorage.setItem(saveKey, JSON.stringify({ seed: s.seed, history: history.slice(-150), meta })) } catch { /* storage full: ignore */ } }, [saveKey, history, s.seed, meta])
   /** record a game that just ended, once */
@@ -320,7 +326,18 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
   }
   const closeIntro = () => { try { localStorage.setItem(SEEN, '1') } catch { /* ignore */ } setIntro(false) }
 
-  const push = (n: State | null, d: number | null = null) => { if (n) { setDir(d); setHistory(h => [...h, n]); setPending(null); record(n) } }
+  const push = (n: State | null, d: number | null = null) => {
+    if (!n) return
+    setDir(d); setHistory(h => [...h, n]); setPending(null); record(n)
+    if (s.dig && !n.dig && n.gdone[4] === 2 && !n.over && !reducedMotion) closeDig(s, n)
+  }
+  /** dug to the bottom: look at the last card (or the beaten creature falling), stash the loot, walk off (see `outro`) */
+  const closeDig = (p: State, n: State) => {
+    const loot = n.hand.filter(c => !p.hand.includes(c) && c !== p.gc[4])
+    setOutro({ ...n, gc: p.gc, gdone: p.gdone, hand: p.hand.filter(c => n.hand.includes(c)), dig: { ...p.dig!, flips: p.dig!.depth, hostile: -1, found: -1, loot } })
+    const fill = STASH.fly + STASH.gap * Math.max(0, loot.length - 1)
+    setAct({ kind: 'look', seconds: LOOK, done: () => setAct({ kind: 'stash', seconds: FLAP.open + fill + FLAP.close, done: () => setAct({ kind: 'walk', seconds: WALK_OFF, done: () => setOutro(null) }) }) })
+  }
   const reset = (seed: number, ranked = true, daily: string | null = null) => { setDir(null); setHistory([newGame(seed)]); setPending(null); setMeta(newMeta(seed, ranked, daily)); setCopied(false) }
   const newDeal = () => reset(freshSeed())
   const replay = () => reset(s.seed, false, null)
@@ -624,7 +641,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
                       )}
                     </AnimatePresence>
                     {/* inside the map, so the map's edge cuts the explorer off below the shoulders; walks on after every card you turn up (not after a fight), runs off the side when you flee, and takes the loot in its backpack when you stop */}
-                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act && act.kind !== 'fight' ? act.kind : `dig ${walks}`} toward={[0, 0]} delay={0}
+                    <Explorer world={world} left={HERO.left} top={HERO.top} height={HERO.h} back step={act && act.kind !== 'fight' && act.kind !== 'look' ? act.kind : `dig ${walks}`} toward={[0, 0]} delay={0}
                       leave={act?.kind === 'flee' ? { pace: 'run', seconds: RUN_OFF } : act?.kind === 'walk' ? { pace: 'walk', seconds: WALK_OFF } : undefined}
                       stash={act?.kind === 'stash' ? act.seconds : 0} swing={act?.kind === 'fight' ? act.seconds : 0} />
                   </>}
