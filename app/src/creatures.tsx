@@ -714,16 +714,24 @@ const EASE_OUT = [0.23, 1, 0.32, 1] as const
  * The creature of hostile card `card`, standing with its feet at `left`, `bottom` (map coordinates) beside the card.
  * It slides out from behind the card `delay` seconds after the card comes into sight, waits (bobbing if it flies), and:
  * `fight` (for `seconds`): lunges at the cards and is knocked back to the right as your card and your sword hit.
- * `dead`: beaten, it falls over to the right and lies there, greyed, until your next action, then fades (its exit).
+ * `dead`: beaten, it goes over onto its back on the spot, legs up, and lies there greyed until your next action, then fades (its exit).
  * `flee`: it charges at you as you run.
  */
 export function Creature({ world, card, left, bottom, delay, action, seconds = 0, dead = false }: {
   world: WorldId; card: number; left: number; bottom: number; delay: number; action?: 'fight' | 'flee'; seconds?: number; dead?: boolean
 }) {
   const reduce = useReducedMotion()
+  // the drawing's top and bottom (viewBox units), so a beaten creature turned over lands with its back on its feet's line
+  const [art, setArt] = useState({ top: 0, bottom: 60 })
+  const measure = (g: SVGGElement | null) => {
+    const b = g?.getBBox()
+    if (b && b.height && (b.y !== art.top || b.y + b.height !== art.bottom)) setArt({ top: b.y, bottom: b.y + b.height })
+  }
   const kind = CREATURES[world]?.[suit(card)][sizeOf(card)]
   if (!kind) return null
   const h = SIZE[sizeOf(card)]
+  // turned half over about the middle of its 60-unit square, its top comes to 60 - top: move it down to the old bottom
+  const land = ((art.bottom + art.top - 60) * h) / 60
   return (
     <motion.div
       className={`creature ${action === 'flee' ? 'charging' : ''} ${action === 'fight' ? 'hit' : ''} ${dead ? 'dead' : ''}`}
@@ -731,9 +739,10 @@ export function Creature({ world, card, left, bottom, delay, action, seconds = 0
       aria-hidden="true"
       // out from behind the card's right edge (it is drawn under the cards) to stand beside it
       initial={reduce ? { opacity: 0 } : { opacity: 0, x: -h * 0.6, scale: 0.94 }}
-      animate={dead && !reduce ? { opacity: 1, x: 10, scale: 0.92, rotate: 90 } : { opacity: 1, x: 0, scale: 1, rotate: 0 }}
-      transition={dead ? { duration: reduce ? 0.2 : 0.35, ease: EASE_OUT } : { duration: reduce ? 0.2 : 0.35, ease: EASE_OUT, delay }}
-      // beaten, it lies on its side (turned about its middle, so it stays in its square, clear of the cards) and fades on your next action
+      animate={dead && !reduce ? { opacity: 1, x: 0, y: land, rotate: 180 } : { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 }}
+      transition={dead ? { duration: reduce ? 0.2 : 0.45, ease: [0.45, 0, 0.55, 1] } : { duration: reduce ? 0.2 : 0.35, ease: EASE_OUT, delay }}
+      // beaten, it goes over onto its back in one movement, on the spot: a half turn, legs up, its back coming to rest on the
+      // ground where its feet were; it fades on your next action
       exit={{ opacity: 0, transition: { duration: 0.25, ease: EASE_OUT } }}
     >
       <motion.div
@@ -743,11 +752,11 @@ export function Creature({ world, card, left, bottom, delay, action, seconds = 0
           : action === 'fight' ? { x: [0, -6, 12, 9, 9], y: [0, 3, -3, 0, 0], rotate: [0, -6, 14, 10, 10] }
           : action === 'flee' ? { x: [0, 150], y: [0, 120], scale: [1, 2.3] }
           : kind.flies ? { y: [0, -2.5, 0] } : undefined}
-        transition={dead ? { duration: 0.35, ease: EASE_OUT } : action === 'fight' ? { duration: seconds, times: [0, 0.35, 0.5, 0.7, 1], ease: 'easeOut' }
+        transition={dead ? { duration: 0.45, ease: [0.45, 0, 0.55, 1] } : action === 'fight' ? { duration: seconds, times: [0, 0.35, 0.5, 0.7, 1], ease: 'easeOut' }
           : action === 'flee' ? { duration: seconds, ease: [0.55, 0, 1, 0.45] }
           : { duration: 1.4, ease: 'easeInOut', repeat: Infinity, delay: delay + 0.35 }}
       >
-        <svg viewBox="0 0 60 60" width={h} height={h}><g {...LINE}>{kind.art}</g></svg>
+        <svg viewBox="0 0 60 60" width={h} height={h}><g ref={measure} {...LINE}>{kind.art}</g></svg>
       </motion.div>
     </motion.div>
   )
