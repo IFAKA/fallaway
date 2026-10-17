@@ -2,9 +2,9 @@
 
 **A free solo card game for one standard 52-card deck.** 1 player · about 15 minutes · no special cards, no printing.
 
-**[▶ Play Fallaway in your browser](https://ifaka.github.io/fallaway/)** · [Rules](RULES.md) · [Example game](RUN_EXAMPLE.md) · [Design notes](DESIGN_NOTES.md)
+**[▶ Play Fallaway in your browser](https://fallaway.vercel.app/)** · [Rules](RULES.md) · [Example game](RUN_EXAMPLE.md) · [Design notes](DESIGN_NOTES.md)
 
-[![Fallaway: a 3×3 map of playing cards on a green table](app/public/og.png)](https://ifaka.github.io/fallaway/)
+[![Fallaway: a 3×3 map of playing cards on a green table](app/public/og.png)](https://fallaway.vercel.app/)
 
 You are an explorer crossing a land bigger than you can see. Walk a sliding 3×3 map of cards while the land behind you falls away, dig regions for supplies while hostile cards fight back, claim 4 key cards of one suit in a row, then reach the finish card.
 

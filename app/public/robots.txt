@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ifaka.github.io/fallaway/sitemap.xml
+Sitemap: https://fallaway.vercel.app/sitemap.xml
