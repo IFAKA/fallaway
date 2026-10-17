@@ -41,5 +41,5 @@ Before you finish a change: `npm run build && npm test && npm run lint` in `app/
 ## Gotchas
 
 - Simulator env flags (`SIMPLE=...`, `NOISE=...`, and the archived sims' rule knobs): in zsh, never pass them as one string variable (`env $FLAGS node ...`), because zsh does not split it and the run silently uses the wrong settings. Write them inline or use an array. Check that a run reproduces the numbers in `DESIGN_NOTES.md` before comparing variants.
-- `app/vite.config.ts` uses `base: './'`, so the build works from any folder on any static host (it is deployed to GitHub Pages by `.github/workflows/pages.yml`; the canonical site is on Vercel).
+- `app/vite.config.ts` uses `base: './'`, so the build works from any folder on any static host (it is deployed to Vercel, configured by the root `vercel.json`).
 - The site URL `https://fallaway.vercel.app/` is hard-coded in `app/index.html`, `app/public/robots.txt`, `app/public/sitemap.xml` and `app/public/llms.txt`. Update all of them if it changes.

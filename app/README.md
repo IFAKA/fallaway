@@ -41,7 +41,7 @@ Screenshots go to `/tmp/shots`. Saved games live in `localStorage` (`zoom-v4` fo
 ## Release
 
 `npm run build` writes a static site to `dist/` (about 130 kB gzipped). Asset paths are relative, so it works from any folder on any static host
-(GitHub Pages, Netlify, Cloudflare Pages, S3, `python3 -m http.server`). It is installable as an app (manifest + icons in `public/`). No server, no accounts, no tracking.
+(Vercel, GitHub Pages, Netlify, Cloudflare Pages, S3, `python3 -m http.server`). It is installable as an app (manifest + icons in `public/`). No server, no accounts, no tracking.
 
 Before a release: `npm run build && npm run lint && bun scripts/smoke.ts 2000 && bun scripts/guide-smoke.ts 500 && bun scripts/render.tsx`, then with `npm run preview` running (`URL=http://localhost:4173/`) or the dev server:
 `node scripts/play.mjs`, `node scripts/record.mjs`, `node scripts/keys.mjs`, `QUIET=1 node scripts/walk.mjs`, `node scripts/phone.mjs`.
