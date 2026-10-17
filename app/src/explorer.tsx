@@ -194,7 +194,7 @@ export function Explorer({ world, left, top, step, toward, delay, height = 41, b
   return (
     <motion.div
       className={`explorer ${leave ? 'leaving' : ''}`}
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 0, left, top }}
       // left/top move with the card it stands on (an explored region turns sideways under it), in step with the card's turn
       animate={{ opacity: 1, left, top, x: leave ? -height * 1.3 : 0 }}
       transition={{ opacity: { duration: 0.3, ease: 'easeOut', delay }, left: { duration: 0.6, ease: 'easeInOut' }, top: { duration: 0.6, ease: 'easeInOut' }, x: { duration: leave?.seconds ?? 0.6, ease: leave?.pace === 'walk' ? 'easeInOut' : 'easeIn' } }}

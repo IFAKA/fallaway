@@ -378,7 +378,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     const fill = STASH.fly + STASH.gap * Math.max(0, loot.length - 1)
     setAct({ kind: 'look', seconds: LOOK, done: () => setAct({ kind: 'stash', seconds: FLAP.open + fill + FLAP.close, done: () => setAct({ kind: 'walk', seconds: WALK_OFF, done: () => setOutro(null) }) }) })
   }
-  const reset = (seed: number, ranked = true, daily: string | null = null) => { setDir(null); setHistory([newGame(seed)]); setPending(null); setMeta(newMeta(seed, ranked, daily)); setCopied(false) }
+  const reset = (seed: number, ranked = true, daily: string | null = null) => { setAct(null); setOutro(null); setDir(null); setHistory([newGame(seed)]); setPending(null); setMeta(newMeta(seed, ranked, daily)); setCopied(false) }
   const newDeal = () => reset(freshSeed())
   const replay = () => reset(s.seed, false, null)
   const undo = () => { if (history.length > 1 && !act) { setDir(null); setHistory(h => h.slice(0, -1)); setPending(null); setMeta(m => ({ ...m, ranked: false })) } }
@@ -527,7 +527,7 @@ export default function Practice({ saveKey, start = 'resume', dealt = true, flav
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || intro || act) return
       // the ending dialog: Enter is left to its focused button; after a win Esc shows the board, after a loss only its buttons lead on
-      if (endOpen && (!won || e.key === 'Escape' || e.key === 'Enter')) { if (won && e.key === 'Escape') { e.preventDefault(); setClosedEnd(s) } return }
+      if (endOpen) { if (won && e.key === 'Escape') { e.preventDefault(); setClosedEnd(s) } return }
       const k = e.key.toLowerCase()
       const arrow = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(k)
       let done = true
