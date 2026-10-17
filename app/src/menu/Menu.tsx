@@ -6,7 +6,7 @@ import { Backdrop } from './Backdrop'
 import { WorldCarousel } from './WorldCarousel'
 import { reducedMotion } from './reducedMotion'
 import { drag, useCarousel, useCurrentWorld } from './store'
-import { DIVE_SECONDS, RISE_VEIL_SECONDS, VEIL_START } from './transition'
+import { DIVE_SECONDS, RISE_SECONDS, RISE_VEIL_SECONDS, VEIL_START } from './transition'
 import { WORLDS, worldTheme, type WorldId } from './worlds'
 import './menu.css'
 
@@ -17,6 +17,9 @@ const VEIL_TIMING = {
   '--veil-duration': `${DIVE_SECONDS * (1 - VEIL_START)}s`,
   '--rise-veil-duration': `${RISE_VEIL_SECONDS}s`,
 } as CSSProperties
+
+/** Seconds past a camera move's length before the menu stops waiting for it. */
+const CAMERA_GRACE = 2
 
 const PLAY: Destination = { mode: 'practice', start: 'new' }
 const CONTINUE: Destination = { mode: 'practice', start: 'resume' }
@@ -59,6 +62,16 @@ export default function Menu({ continuable, onEnter, from = 'direct' }: MenuProp
   const phase = leaving ? (diving ? 'zooming' : 'leaving') : rise === 'waiting' ? 'surfacing' : rise === 'rising' ? 'rising' : 'menu'
 
   const leave = (to: Destination) => (reducedMotion ? onEnter(to, 'direct') : setLeaving({ to, via: transitionOf(to) }))
+
+  // The camera ends the dive and the rise. Without WebGL (or with a lost context) it never draws a frame, so the
+  // menu must not wait on it forever: past the move's length plus a margin for the first compile, go on without it.
+  useEffect(() => {
+    const dive = leaving?.via === 'dive' ? leaving : null
+    if (!dive && rise === 'done') return
+    const seconds = (dive ? DIVE_SECONDS : RISE_SECONDS) + CAMERA_GRACE
+    const id = setTimeout(() => (dive ? onEnter(dive.to, 'dive') : setRise('done')), seconds * 1000)
+    return () => clearTimeout(id)
+  }, [leaving, rise, onEnter])
 
   // Arrow keys pick a world, only while the carousel is what you are looking at.
   useEffect(() => {

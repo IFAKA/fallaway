@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { Component, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Sparkles } from '@react-three/drei'
 import { MathUtils, type PerspectiveCamera } from 'three'
@@ -128,6 +128,13 @@ function Scene({ stage, camera, onRiseStart, onCameraEnd }: { stage: StageFrame 
   )
 }
 
+/** If WebGL can't start, the menu goes on without its planets (Menu stops waiting on the camera) instead of failing the page. */
+class NoWebGL extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() { return this.state.failed ? null : this.props.children }
+}
+
 /** Full-screen canvas whose carousel lines up with the `stage` element. */
 export function WorldCarousel({ stageRef, ...dive }: { stageRef: RefObject<HTMLElement | null> } & DiveProps) {
   const layer = useRef<HTMLDivElement>(null)
@@ -155,9 +162,11 @@ export function WorldCarousel({ stageRef, ...dive }: { stageRef: RefObject<HTMLE
   return (
     <div className="canvas-layer" ref={layer} aria-hidden="true">
       {stage && stage.width > 0 && stage.height > 0 ? (
-        <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: FOV }} dpr={[1, 2]}>
-          <Scene stage={stage} {...dive} />
-        </Canvas>
+        <NoWebGL>
+          <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: FOV }} dpr={[1, 2]}>
+            <Scene stage={stage} {...dive} />
+          </Canvas>
+        </NoWebGL>
       ) : null}
     </div>
   )
