@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LIMIT, RUN, START } from '../../core/engine'
 
@@ -17,6 +17,58 @@ export function Rules() {
       <li><B>Zoom OUT</B> (pay 1 card, free once your key is built) turns the whole map face-up.</li>
       <li><B>You lose</B> when your hand is empty and there is nothing to dig, claim or finish where you stand.</li>
     </ol>
+  )
+}
+
+/** the rules in a dialog (menu "How to play" and the on-screen game's first-visit intro); `children` adds notes under the rules */
+export function HowToPlay({ onClose, close = 'Got it', children }: { onClose: () => void; close?: string; children?: ReactNode }) {
+  // focus the close button so Enter closes the dialog, without scrolling the rules to their end (autoFocus would)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => closeRef.current?.focus({ preventScroll: true }), [])
+  return (
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="how-to-play">
+      <div className="card-modal">
+        <h2 id="how-to-play">How to play Fallaway</h2>
+        <Rules />
+        {children}
+        <button ref={closeRef} className="big" onClick={onClose}>{close}</button>
+      </div>
+    </div>
+  )
+}
+
+/** the largest the on-screen board grows on a big window: a little over its own size, still crisp */
+const MAX_SCALE = 1.5
+
+/**
+ * Scale a fixed-size table to fill the space it is given, width and height, so the whole table is on screen without
+ * scrolling; `aside` (the actions) sits right beside it, or above it on a phone where the table only fits the width
+ * (see `.fitscreen` in App.css). One coordinate space for the animations, as in Fit.
+ */
+export function FitScreen({ w, h, aside, children }: { w: number; h: number; aside?: ReactNode; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const asideRef = useRef<HTMLDivElement>(null)
+  const [k, setK] = useState(1)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      const side = getComputedStyle(el).flexDirection === 'row'
+      const gap = parseFloat(getComputedStyle(el).columnGap) || 0
+      const room = el.clientWidth - (side ? (asideRef.current?.offsetWidth ?? 0) + gap : 0)
+      setK(Math.max(0.2, side ? Math.min(MAX_SCALE, room / w, el.clientHeight / h) : Math.min(1, room / w)))
+    }
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [w, h])
+  return (
+    <div ref={ref} className="fitscreen">
+      <div className="fitscreen-board" style={{ width: w * k, height: h * k }}>
+        <div style={{ width: w, height: h, transform: `scale(${k})`, transformOrigin: 'top left' }}>{children}</div>
+      </div>
+      {aside && <div ref={asideRef} className="fitscreen-aside">{aside}</div>}
+    </div>
   )
 }
 

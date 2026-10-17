@@ -35,10 +35,11 @@ Before you finish a change: `npm run build && npm test && npm run lint` in `app/
 - **No patch rules.** Fix pressure through the core loop (hunger, digging, fighting), not by adding corrective rules such as hidden clocks or escalation.
 - **It must play on a real table.** Every rule has to be easy to run by hand with a physical deck. Write rules text with concrete examples, in plain English.
 - **Saved games.** `localStorage` keys (`zoom-v4`, `zoom-guide-v4`, `zoom-mode`, `zoom-seen-intro-v4`, `zoom-stats-v1`) keep the game's old working name on purpose: renaming them would wipe players' saves and win records.
+  The world menu added keys under the new name: `fallaway-world-v1` (the chosen world) and `fallaway-game-candy-v1` / `fallaway-game-moon-v1` (one saved on-screen game per world; Earth keeps `zoom-v4`). `fallaway-screen-v1` is in `sessionStorage` (the game screen open in this tab, so a reload stays in it).
 - **Naming.** The game is *Fallaway*. "Zoom in" (dig) and "zoom out" (reveal the map) are names of actions, not of the game.
 
 ## Gotchas
 
 - Simulator env flags (`SIMPLE=...`, `NOISE=...`, and the archived sims' rule knobs): in zsh, never pass them as one string variable (`env $FLAGS node ...`), because zsh does not split it and the run silently uses the wrong settings. Write them inline or use an array. Check that a run reproduces the numbers in `DESIGN_NOTES.md` before comparing variants.
-- `app/vite.config.ts` uses `base: './'`, so the build works from any folder on any static host (it is deployed to GitHub Pages by `.github/workflows/pages.yml`).
-- The site URL `https://ifaka.github.io/fallaway/` is hard-coded in `app/index.html`, `app/public/robots.txt`, `app/public/sitemap.xml` and `app/public/llms.txt`. Update all of them if it changes.
+- `app/vite.config.ts` uses `base: './'`, so the build works from any folder on any static host (it is deployed to GitHub Pages by `.github/workflows/pages.yml`; the canonical site is on Vercel).
+- The site URL `https://fallaway.vercel.app/` is hard-coded in `app/index.html`, `app/public/robots.txt`, `app/public/sitemap.xml` and `app/public/llms.txt`. Update all of them if it changes.

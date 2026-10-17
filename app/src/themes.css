@@ -1,0 +1,69 @@
+/* ---- world themes for the game screen ----
+   App.css paints the table with these tokens; the game root (.game, see App.tsx) picks a palette by data-world.
+   Earth is the original green table, so it is also the default (the menu's How to play, a server render).
+   Never themed, in any world: card fronts and suit colours, the safe / risky / deadly tags, the gold "act here"
+   highlights, the instruction box, the tracker chips. */
+:root {
+  --table: #0d3b2a;      /* the page behind everything */
+  --felt: #0a2d20;       /* panels and zones */
+  --felt-hi: #14442f;    /* where you stand, the end-of-game box */
+  --line: #2f7a5c;       /* dashed zone and slot outlines */
+  --line-soft: #1f5a42;
+  --btn: #2b6b4f;
+  --btn-hover: #38865f;
+  --btn-edge: #4a9;
+  --card-back: repeating-linear-gradient(45deg, #263a8c 0 5px, #3150b8 5px 10px);
+  --card-back-edge: #fff;
+  --title: #ffd36b;
+  --chart-edge: #4a9;    /* the map's frame (the planet itself is drawn in planetMap.tsx) */
+  --chart-ink: #9fd8b8;  /* the compass rose */
+}
+
+/* clip: while the camera dives into a card (biome.tsx) the board is scaled far past the window, which must not make the page scroll */
+.game { position: relative; isolation: isolate; min-height: 100vh; background: var(--table); overflow: clip; }
+
+/* Sugar Rose: raspberry table, candy-stripe card backs */
+.game[data-world='candy'] {
+  --table: #3a1430;
+  --felt: #2a0e22;
+  --felt-hi: #521d40;
+  --line: #a3457a;
+  --line-soft: #66284c;
+  --btn: #8a2f62;
+  --btn-hover: #a33b76;
+  --btn-edge: #ff8fbb;
+  --card-back: repeating-linear-gradient(45deg, #ff79ad 0 5px, #fff0f6 5px 10px);
+  --card-back-edge: #fff0f6;
+  --title: #ffb3d1;
+  --chart-edge: #ff8fbb;
+  --chart-ink: #ffb3d1;
+}
+
+/* Moon: night-blue table, starry card backs */
+.game[data-world='moon'] {
+  --table: #1b1f38;
+  --felt: #12152b;
+  --felt-hi: #282d52;
+  --line: #555a96;
+  --line-soft: #343862;
+  --btn: #3b3e78;
+  --btn-hover: #4a4e96;
+  --btn-edge: #a596ff;
+  --card-back:
+    radial-gradient(circle, #f2f0ff 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+    radial-gradient(circle, #a596ff 0 1px, transparent 1.5px) 4px 5px / 13px 13px,
+    #1d2150;
+  --card-back-edge: #c3bbff;
+  --title: #c3bbff;
+  --chart-edge: #7f86d6;
+  --chart-ink: #9fb4ff;
+}
+
+/* Real deck: you are looking at your own cards, so the backs on screen stay the classic ones; only the table is themed */
+.game[data-mode='guide'] {
+  --card-back: repeating-linear-gradient(45deg, #263a8c 0 5px, #3150b8 5px 10px);
+  --card-back-edge: #fff;
+}
+
+/* a world's word beside a real term, e.g. "gone for good · melted away" */
+.flavour { color: var(--accent); font-style: italic; }

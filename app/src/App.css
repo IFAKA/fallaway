@@ -1,8 +1,8 @@
 :root { color-scheme: dark; font-family: system-ui, sans-serif; --cw: 62px; --ch: 88px; }
-body { margin: 0; background: #0d3b2a; color: #eef; }
+body { margin: 0; background: var(--table); color: #eef; }
 #root { margin: 0; padding: 0; }
-button { background: #2b6b4f; color: #fff; border: 1px solid #4a9; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 14px; }
-button:hover:not(:disabled) { background: #38865f; }
+button { background: var(--btn); color: #fff; border: 1px solid var(--btn-edge); border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 14px; }
+button:hover:not(:disabled) { background: var(--btn-hover); }
 button:disabled { opacity: .35; cursor: not-allowed; }
 button.big { background: #c8861b; border-color: #e5a53a; font-size: 16px; padding: 10px 20px; }
 button.on { background: #c8861b; border-color: #e5a53a; }
@@ -17,16 +17,16 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 
 .play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; padding: 10px 16px; min-height: 100vh; box-sizing: border-box; }
 .boardcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.panel { background: #0a2d20; border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; min-height: 0; position: sticky; top: 10px; height: calc(100vh - 20px); box-sizing: border-box; }
+.panel { background: var(--felt); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; min-height: 0; position: sticky; top: 10px; height: calc(100vh - 20px); box-sizing: border-box; }
 .log { flex: 1; overflow: auto; font-size: 13px; line-height: 1.45; margin: 6px 0; }
 .log .sub { opacity: .8; padding-left: 8px; }
 .log div { margin: 2px 0; }
-.legend { font-size: 12px; opacity: .9; border-top: 1px solid #1f5a42; padding-top: 6px; }
+.legend { font-size: 12px; opacity: .9; border-top: 1px solid var(--line-soft); padding-top: 6px; }
 .legend ul { padding-left: 18px; margin: 6px 0; line-height: 1.45; }
 
 .topbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.title { font-size: 22px; color: #ffd36b; }
-.lock { background: #0a2d20; border: 1px solid #2f7a5c; border-radius: 8px; padding: 6px 10px; font-size: 14px; }
+.title { font-size: 22px; color: var(--title); }
+.lock { background: var(--felt); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 14px; }
 .stat { font-size: 13px; opacity: .9; } .stat b { font-size: 15px; }
 
 .tracker { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
@@ -35,33 +35,33 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .kchip.table { background: #b8932a; color: #fff; border-color: #ffd36b; }
 .kchip.gone { background: #4a1f24; color: #a66; text-decoration: line-through; border-color: #733; }
 .kchip.vault { margin-left: 6px; border-color: #ffd36b; }
-.klegend { margin-left: 10px; display: inline-flex; gap: 4px; align-items: center; }
+.klegend { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; vertical-align: middle; }
 
 .maparea { display: flex; gap: 20px; align-items: flex-start; }
-.mapwrap { position: relative; padding: 34px 40px; background: #0a2d20; border-radius: 12px; border: 2px dashed #2f7a5c; }
+.mapwrap { position: relative; padding: 34px 40px; background: var(--felt); border-radius: 12px; border: 2px dashed var(--line); }
 .map { display: grid; grid-template-columns: repeat(3, calc(var(--cw) + 14px)); gap: 6px; transition: opacity .3s; }
 .map.faded { opacity: .45; pointer-events: none; }
 .cell { width: calc(var(--cw) + 14px); height: calc(var(--ch) + 14px); display: flex; align-items: center; justify-content: center; border-radius: 8px; }
-.cell.here { background: #14442f; outline: 3px solid #ffd36b; }
+.cell.here { background: var(--felt-hi); outline: 3px solid #ffd36b; }
 .cell.vaultcell { background: #4a3d12; }
-.empty { width: var(--cw); height: var(--ch); border: 2px dashed #2f7a5c; border-radius: 7px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: .6; }
+.empty { width: var(--cw); height: var(--ch); border: 2px dashed var(--line); border-radius: 7px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: .6; }
 .arrow { position: absolute; padding: 4px 12px; font-size: 16px; }
 .arrow.up { top: 4px; left: 50%; transform: translateX(-50%); } .arrow.down { bottom: 4px; left: 50%; transform: translateX(-50%); }
 .arrow.left { left: 4px; top: 50%; transform: translateY(-50%); } .arrow.right { right: 4px; top: 50%; transform: translateY(-50%); }
 .side { display: flex; flex-direction: column; gap: 12px; }
-.pilebox { text-align: center; } .pilecard.back { width: 54px; height: 76px; border-radius: 6px; margin: 0 auto 2px; display: flex; align-items: center; justify-content: center; font-weight: 700; background: repeating-linear-gradient(45deg, #263a8c, #263a8c 5px, #3150b8 5px, #3150b8 10px); border: 2px solid #fff; box-sizing: border-box; }
+.pilebox { text-align: center; } .pilecard.back { width: 54px; height: 76px; border-radius: 6px; margin: 0 auto 2px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-shadow: 0 1px 2px #000c; background: var(--card-back); border: 2px solid var(--card-back-edge); box-sizing: border-box; }
 .gonebox { display: flex; flex-wrap: wrap; gap: 3px; max-width: 150px; justify-content: center; }
 .chip { background: #f4f4ee; color: #1b1b1b; border-radius: 4px; padding: 1px 4px; font-size: 11px; font-weight: 700; } .chip.red { color: #c0262d; }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .prompt { min-height: 20px; font-size: 14px; line-height: 1.4; }
-.spread { background: #0a2d20; border-radius: 10px; padding: 8px 12px; }
+.spread { background: var(--felt); border-radius: 10px; padding: 8px 12px; }
 .spot { text-align: center; width: 120px; } .spot .price { font-size: 12px; margin-top: 8px; opacity: .9; }
 .spot .tcard { margin: 0 auto; }
 .lname { font-size: 12px; opacity: .85; margin-bottom: 4px; }
 .hand { display: flex; gap: 12px; min-height: 100px; padding: 6px 4px; flex-wrap: wrap; }
 .advice { background: #3a3414; border: 1px solid #c8a21b; border-radius: 6px; padding: 8px 12px; }
-.endbox { background: #14442f; border: 2px solid #ffd36b; border-radius: 10px; padding: 12px 16px; text-align: center; }
+.endbox { background: var(--felt-hi); border: 2px solid #ffd36b; border-radius: 10px; padding: 12px 16px; text-align: center; }
 .result { font-size: 26px; font-weight: 800; color: #ffd36b; }
 .record { margin: 6px 0 8px; }
 
@@ -77,7 +77,7 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .cf { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 7px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,.45); transition: transform .15s; }
 .cf.front { background: #fbfbf6; border: 1px solid #999; }
 .cf.front.red { color: #c0262d; } .cf.front.black { color: #1b1b1b; }
-.cf.backside { transform: rotateY(180deg); background: repeating-linear-gradient(45deg, #263a8c, #263a8c 5px, #3150b8 5px, #3150b8 10px); border: 2px solid #fff; }
+.cf.backside { transform: rotateY(180deg); background: var(--card-back); border: 2px solid var(--card-back-edge); }
 .corner { position: absolute; top: 4px; left: 6px; font-weight: 700; line-height: 1; font-size: 17px; }
 .pip { position: absolute; right: 6px; bottom: 4px; font-size: 28px; }
 .ctag { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font-size: 10px; font-weight: 800; background: #7a3fd1; color: #fff; border-radius: 8px; padding: 1px 6px; border: 1px solid #fff; z-index: 3; }
@@ -86,15 +86,64 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 
 /* ---- stage (single coordinate space for all cards) ---- */
 .stage { position: relative; flex: none; }
-.stage .zone { position: absolute; border: 2px dashed #2f7a5c; border-radius: 12px; background: #0a2d2055; box-sizing: border-box; }
+.stage .zone { position: absolute; border: 2px dashed var(--line); border-radius: 12px; background: color-mix(in srgb, var(--felt) 33%, transparent); box-sizing: border-box; }
 .stage .zone.label span { position: absolute; left: 12px; top: 6px; font-size: 12px; opacity: .8; }
-.stage .cellframe { position: absolute; width: 74px; height: 100px; border: 3px solid #ffd36b; border-radius: 10px; background: #14442f; box-sizing: border-box; transition: transform .6s ease-in-out; }
+.stage .cellframe { position: absolute; width: 74px; height: 100px; border: 3px solid #ffd36b; border-radius: 10px; background: var(--felt-hi); box-sizing: border-box; transition: transform .6s ease-in-out; }
 /* follows an explored (sideways) center card: same turn and scale as the card, around the same center */
 .stage .cellframe.turned { transform: rotate(90deg) scale(.88); }
+/* the caption above a zone: "Satchel", "Map · dig the middle card", "Digging 8♦ ..." */
+.stage .zcap { position: absolute; top: 0; height: 18px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .85; white-space: nowrap; }
+.stage .zcap .flavour { text-transform: none; letter-spacing: 0; font-weight: 400; }
+/* the map is the planet you are on, seen from above (PlanetMap in planetMap.tsx), on a patch of space, with a compass rose */
+.stage .mapzone { overflow: hidden; border: 2px solid var(--chart-edge); background: color-mix(in srgb, var(--table) 55%, #000); }
+.stage .planetmap { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* the map while you dig: the biome's Panorama (regionArt.tsx) sized to the map, its sun in the top corner and its ground along the bottom */
+.stage .mapbiome { position: absolute; inset: 0; }
+.mapbiome .panorama { position: absolute; inset: 0; }
+.mapbiome .panorama-body { right: 22px; top: 12px; width: 40px; height: 40px; }
+/* the landscape is a band along a high horizon, and its ground runs on toward you (Panorama's field): a floor of tufts
+   tilted back in perspective, small by the horizon and big at your feet, that streams toward you as you walk forward */
+.mapbiome .panorama-ground { top: 50px; bottom: auto; height: 116px; }
+.panorama-field { position: absolute; left: 0; right: 0; top: 164px; bottom: 0; overflow: hidden; perspective: 120px; perspective-origin: 50% -40px;
+  background-image: linear-gradient(#0000 0, #00000030 100%); }
+.panorama-field .floor { position: absolute; left: -150%; right: -150%; top: 0; height: 400%; transform-origin: 50% 0; transform: rotateX(62deg);
+  background-image: radial-gradient(ellipse 9px 3px, #00000024 0 60%, transparent 100%); background-size: 46px 30px;
+  transition: background-position-y .8s ease-in-out; }
+/* the dig seen over the explorer's shoulder (Practice.tsx): how deep you have dug and the loot so far, in one panel */
+.mapbiome .dbar { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 5px 8px 6px; border-radius: 8px; background: color-mix(in srgb, var(--felt) 88%, transparent); border-bottom: 3px solid var(--title); color: #fff; font-size: 12px; line-height: 1.1; box-shadow: 0 2px 6px #0005; }
+.mapbiome .dbar b { color: var(--title); }
+.mapbiome .hostile-sign { position: absolute; display: flex; align-items: center; gap: 6px; padding: 2px 10px 2px 6px; border-radius: 10px; background: #fffaf0; color: #b8322a; border: 2px solid #b8322a; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; box-shadow: 0 2px 6px #0005; }
+.mapbiome .hostile-sign .big-suit { font-size: 26px; line-height: 1; color: #2a2238; }
+.mapbiome .hostile-sign.red .big-suit { color: #c8102e; }
+.mapbiome .pips { display: flex; gap: 4px; }
+.mapbiome .pips i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; background: transparent; box-sizing: border-box; }
+.mapbiome .pips i.on { background: var(--title); border-color: var(--title); }
+.stage .compass { position: absolute; right: 4px; bottom: 4px; color: var(--chart-ink); }
+/* unexplored regions lie under fog */
+.acard.fog .backside::after { content: ''; position: absolute; inset: 0; border-radius: 5px; background: radial-gradient(ellipse at 30% 35%, #fff5 0, transparent 60%), radial-gradient(ellipse at 70% 75%, #fff4 0, transparent 55%); }
+/* the map's key, above the coach: a fogged card back and the explorer */
+/* while you dig, beside the board: this biome's hostile suit and how to defend (in place of the map's key) */
+.digrule { text-align: center; margin-bottom: 10px; }
+.digrule-title { font-size: 16px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--title); }
+.digrule .big-suit { font-size: 72px; line-height: 1; }
+.digrule-line { font-size: 14px; opacity: .85; }
+.mapkey { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: 13px; opacity: .85; margin-bottom: 10px; }
+.mapkey span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend-fog { position: relative; display: inline-block; width: 14px; height: 20px; border-radius: 2px; box-sizing: border-box; background: var(--card-back); border: 1px solid var(--card-back-edge); }
+.legend-fog::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 35% 40%, #fff6 0, transparent 70%); }
+/* while you dig, the map's other regions step aside for the dig's cards */
+.acard.hidden { pointer-events: none; }
+/* you are here: the world's explorer on the middle region's corner */
+.stage .explorer { position: absolute; z-index: 4; pointer-events: none; filter: drop-shadow(0 2px 2px #0008); }
+/* inside a biome the explorer stands under the cards, so loot is seen dropping into its backpack; leaving (fleeing, or
+   walking off after a stop) it passes in front of them */
+.stage .mapbiome .explorer { z-index: 2; }
+.stage .mapbiome .explorer.leaving { z-index: 4; }
+.stage .explorer svg { display: block; overflow: visible; }
 .stage .arrow { position: absolute; padding: 4px 12px; font-size: 16px; z-index: 2; }
 .stage .pilecard.back { position: absolute; margin: 0; width: 62px; height: 88px; border-radius: 7px; }
 .stage .piletxt { position: absolute; font-size: 12px; opacity: .7; width: 62px; text-align: center; }
-.stage .gonebox { position: absolute; display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-start; align-content: flex-start; }
+.stage .gonebox { position: absolute; max-width: none; display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-start; align-content: flex-start; }
 .stage .gonebox .muted { width: 100%; }
 .gonerow { width: 100%; font-size: 13px; font-weight: 700; line-height: 17px; color: #e8efe9; } .gonerow.red { color: #ff8f8f; }
 .stage .price { position: absolute; width: 130px; text-align: center; font-size: 12px; line-height: 1.35; opacity: .95; }
@@ -103,20 +152,52 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .acard.clickable:hover .front { filter: brightness(1.08); }
 .acard.selected .front { outline: 3px solid #ffd36b; box-shadow: 0 0 12px #ffd36b; }
 .acard.glow .front { outline: 3px solid #ffd36b; box-shadow: 0 0 14px #ffd36b; }
+/* a hostile card being hit in a fight (Practice.tsx STRIKE): a red flash when your card reaches it */
+.acard.hit .front { animation: hitflash .35s .45s ease-out; }
+@keyframes hitflash { 0%, 100% { box-shadow: none; filter: none; } 30% { box-shadow: 0 0 0 4px #e8434e, 0 0 18px #e8434e; filter: brightness(1.15) saturate(1.4); } }
+@media (prefers-reduced-motion: reduce) { .acard.hit .front { animation: none; } }
 .acard.dim { opacity: .55 !important; }
 .acard .flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: none; }
+/* region art (regionArt.tsx): the lower part of a face-up map region, below the corner index, which it never covers.
+   The big suit moves up to the top right, so the colour of the suit still reads at a glance. Key cards and the finish
+   card stay plain white, which keeps them apart from regions. */
+.acard .art { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 44px; border-radius: 4px; opacity: 0; transition: opacity .3s, filter .3s; }
+.acard .front.region .art { opacity: 1; }
+.acard .pip { transform-origin: top right; transition: transform .3s; }
+.acard .front.region .pip { transform: translateY(-46px) scale(.75); }
+/* explored (sideways) regions: the landscape fades to grey, the index stays full strength */
+.acard.turned .art { filter: grayscale(.75) brightness(1.05); }
+@media (prefers-reduced-motion: reduce) { .acard .art, .acard .pip { transition: none; } }
+
+/* entering a biome while you dig (biome.tsx): the camera dives into the card, the biome's colour washes over the
+   screen, then its landscape fills the window behind the board for the whole dig, toned down by the table colour so
+   the cards, tags and text stay readable */
+.biome { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0; }
+.biome.on { opacity: 1; }
+/* Panorama (regionArt.tsx): the sky fills the window, the sun is sun-sized, and the ground is the card's landscape
+   repeated in a strip along the bottom, at a size where a pine looks like a pine */
+.biome .panorama { position: absolute; inset: 0; }
+/* the sun (or Earth, on the Moon) hangs in the open sky to the right of the board, clear of the buttons and the side panel */
+.panorama-body { position: absolute; right: calc(320px + 8vw); top: 16vh; width: clamp(48px, 9vh, 96px); height: clamp(48px, 9vh, 96px); }
+@media (max-width: 900px) { .panorama-body { right: 8vw; } }
+.panorama-ground { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(150px, 32vh, 300px); display: flex; justify-content: center; overflow: hidden; }
+.panorama-strip { display: flex; height: 100%; flex: none; }
+.panorama-ground svg { height: 100%; width: auto; aspect-ratio: 54 / 46; flex: none; overflow: visible; margin: 0 -0.5px; }
+.biome::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--table) 62%, transparent); }
+.biome-veil { position: fixed; inset: 0; z-index: 45; }
+@media (prefers-reduced-motion: reduce) { .biome, .panorama-field .floor { transition: none; } }
 
 /* ---- guide ---- */
 .guide { background: #3a3414; border: 2px solid #c8a21b; border-radius: 10px; padding: 10px 14px; max-width: 720px; box-sizing: border-box; }
 .gtitle { font-weight: 800; font-size: 17px; color: #ffd36b; margin-bottom: 4px; }
 .gbody { font-size: 14px; line-height: 1.5; }
 .gl { margin: 6px 0 4px; padding-left: 20px; } .gl li { margin: 5px 0; }
-.keyline { background: #0d3a28; border-radius: 6px; padding: 5px 9px; margin: 6px 0; }
+.keyline { background: var(--felt); border-radius: 6px; padding: 5px 9px; margin: 6px 0; }
 .advice { max-width: 720px; box-sizing: border-box; }
 
 /* ---- intro modal ---- */
 .modal { position: fixed; inset: 0; background: #000b; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.card-modal { background: #0d3b2a; border: 2px solid #ffd36b; border-radius: 12px; padding: 16px 22px; max-width: 640px; max-height: 90vh; overflow: auto; }
+.card-modal { background: var(--table); border: 2px solid #ffd36b; border-radius: 12px; padding: 16px 22px; max-width: 640px; max-height: 90vh; overflow: auto; }
 .card-modal h2 { margin: 0 0 8px; color: #ffd36b; }
 .steps { line-height: 1.5; padding-left: 20px; } .steps li { margin: 8px 0; }
 
@@ -126,9 +207,68 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .actions { min-height: 46px; }
 
 /* ---- shell + real-deck guide ---- */
-.modes { display: flex; gap: 10px; align-items: center; padding: 10px 16px 0; }
+.modes { display: inline-flex; gap: 10px; align-items: center; }
+.modesbar { padding: 10px 16px 0; }
+
+/* ---- the on-screen game: one header line, the tracker, then the table scaled to the rest of the window (no scrolling),
+   with only the actions you can take right now beside it (FitScreen in shared.tsx) ---- */
+.onscreen { height: 100vh; grid-template-columns: minmax(0, 1fr); }
+/* what to do now, on top of the actions: a title and one line (Coach in Practice.tsx) */
+.coach { background: var(--felt); border: 2px solid #c8a21b; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+.coach-title { font-weight: 800; font-size: 16px; color: #ffd36b; margin-bottom: 2px; }
+.coach-line { font-size: 14px; line-height: 1.45; }
+.onscreen .advice { font-size: 13px; line-height: 1.4; margin-bottom: 10px; }
+.onscreen .advice .small { display: block; margin: 6px 0 0; }
+.onscreen .boardcol { min-height: 0; gap: 8px; }
+.onscreen .topbar { gap: 10px; row-gap: 6px; }
+.onscreen .lock { padding: 5px 10px; }
+button.icon { width: 38px; height: 36px; padding: 0; font-size: 17px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.fitscreen { flex: 1; min-height: 0; display: flex; gap: 20px; align-items: center; justify-content: center; }
+.fitscreen-board { flex: none; }
+.fitscreen-aside { width: 260px; flex: none; }
+.onscreen .actions { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+/* the actions are chunky, solid game buttons, the same in every world, so they read over any table or biome:
+   light for the everyday ones, gold for the main move, red for fleeing a hostile card */
+.onscreen .actions button {
+  text-align: left; font-size: 16px; font-weight: 800; padding: 10px 16px; border-radius: 10px;
+  background: #f4f1e8; color: #1b1b1b; border: 2px solid #fff;
+  box-shadow: 0 4px 0 #0007, 0 8px 18px #0006; transition: transform .1s, filter .1s, box-shadow .1s;
+}
+.onscreen .actions button:hover:not(:disabled) { background: #f4f1e8; filter: brightness(1.06); transform: translateY(-1px); }
+.onscreen .actions button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #0007, 0 4px 10px #0006; }
+.onscreen .actions button.big, .onscreen .actions button.big:hover:not(:disabled) { background: #f5b52e; color: #2a1a00; border-color: #ffe08a; box-shadow: 0 4px 0 #9a6400, 0 8px 18px #0006; }
+.onscreen .actions button.danger, .onscreen .actions button.danger:hover:not(:disabled) { background: #e0453a; color: #fff; border-color: #ff9d94; box-shadow: 0 4px 0 #86221b, 0 8px 18px #0006; }
+.onscreen .actions button.glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 18px #ffd36b, 0 4px 0 #0007; }
+/* fleeing is your only way out: the button pulses */
+.onscreen .actions button.danger.urgent { animation: act-pulse 1.1s ease-in-out infinite; }
+@keyframes act-pulse { 50% { box-shadow: 0 4px 0 #86221b, 0 0 0 5px #ff6b5f88, 0 0 26px #ff6b5f; } }
+@media (prefers-reduced-motion: reduce) { .onscreen .actions button.danger.urgent { animation: none; box-shadow: 0 4px 0 #86221b, 0 0 0 4px #ff6b5f; } }
+.onscreen .actions small { display: block; font-size: 12px; font-weight: 600; opacity: .75; }
+/* a hostile card is waiting: the coach turns red */
+.coach.alert { border-color: #ff6b5f; box-shadow: 0 0 18px #ff6b5f66; }
+.coach.alert .coach-title { color: #ff8a80; }
+.onscreen .endbox { text-align: left; padding: 10px 12px; }
+.onscreen .endbox .result { font-size: 19px; line-height: 1.2; margin-bottom: 4px; }
+.endbtns { display: flex; flex-direction: column; gap: 6px; }
+/* phones: the table fits the width, the actions go under it in a row, the page scrolls to the instructions */
+@media (max-width: 900px) {
+  .onscreen { height: auto; }
+  .fitscreen { flex-direction: column; flex: none; align-items: flex-start; justify-content: flex-start; }
+  .fitscreen-aside { width: 100%; }
+  .onscreen .actions { flex-direction: row; flex-wrap: wrap; }
+}
+/* full-screen washes between the menu and a game screen (see Veil in App.tsx): the world's colour around a dive
+   (--veil, set by worldTheme), or the menu's dark for Real deck's plain fade */
+.veil { position: fixed; inset: 0; z-index: 60; background: var(--veil); }
+.veil.plain { background: #0d1016; }
+.veil.clear { pointer-events: none; animation: veil-clear .4s ease-out forwards; } /* arriving: clears to reveal the table */
+.veil.clear.plain { animation-duration: .3s; }
+.veil.cover { animation: veil-cover .25s ease-out forwards; } /* leaving: covers the table before the menu takes over */
+.veil.cover.plain { animation-duration: .2s; }
+@keyframes veil-clear { to { opacity: 0; } }
+@keyframes veil-cover { from { opacity: 0; } }
 .guide.wide { max-width: none; }
-.donow { background: #14442f; border: 2px solid #4a9; border-radius: 10px; padding: 8px 14px; }
+.donow { background: var(--felt-hi); border: 2px solid var(--btn-edge); border-radius: 10px; padding: 8px 14px; }
 .dntitle { font-weight: 800; font-size: 16px; color: #ffd36b; margin-bottom: 4px; }
 .todo { margin: 4px 0; padding-left: 22px; line-height: 1.5; font-size: 15px; } .todo li { margin: 4px 0; }
 .enter { background: #12304a; border: 2px solid #4a7fb0; border-radius: 10px; padding: 8px 14px; }
@@ -137,20 +277,20 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .pbtn.red { color: #c0262d; } .pbtn:hover:not(:disabled) { background: #ffe9a8; } .pbtn:disabled { opacity: .2; cursor: not-allowed; }
 .gcard { width: 62px; height: 88px; border-radius: 7px; position: relative; box-sizing: border-box; flex: none; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,.45); }
 .gcard.face { background: #fbfbf6; border: 1px solid #999; } .gcard.red { color: #c0262d; } .gcard.black { color: #1b1b1b; }
-.gcard.back { background: repeating-linear-gradient(45deg, #263a8c, #263a8c 5px, #3150b8 5px, #3150b8 10px); border: 2px solid #fff; color: #ffd36b; font-size: 26px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.gcard.back { background: var(--card-back); border: 2px solid var(--card-back-edge); color: #ffd36b; font-size: 26px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .gcard.clickable { cursor: pointer; } .gcard.clickable:hover { transform: translateY(-3px); }
 .gcard.selected { outline: 3px solid #ffd36b; box-shadow: 0 0 12px #ffd36b; } .gcard.glow { outline: 3px solid #ffd36b; box-shadow: 0 0 14px #ffd36b; }
 .gcard .corner { position: absolute; top: 4px; left: 6px; font-weight: 700; line-height: 1; font-size: 17px; }
 .gcard .pip { position: absolute; right: 6px; bottom: 4px; font-size: 28px; }
 .mirrorrow { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
-.mirror { display: grid; grid-template-columns: auto auto auto; gap: 6px; align-items: center; justify-items: center; background: #0a2d20; border: 2px dashed #2f7a5c; border-radius: 12px; padding: 10px; }
+.mirror { display: grid; grid-template-columns: auto auto auto; gap: 6px; align-items: center; justify-items: center; background: var(--felt); border: 2px dashed var(--line); border-radius: 12px; padding: 10px; }
 .mgrid { display: grid; grid-template-columns: repeat(3, 76px); gap: 6px; }
 .mcell { width: 76px; height: 102px; display: flex; align-items: center; justify-content: center; border-radius: 9px; }
-.mcell.here { background: #14442f; outline: 3px solid #ffd36b; } .mcell.asking { outline: 3px dashed #7fc4ff; }
-.gap { width: 62px; height: 88px; border: 2px dashed #2f7a5c; border-radius: 7px; box-sizing: border-box; }
+.mcell.here { background: var(--felt-hi); outline: 3px solid #ffd36b; } .mcell.asking { outline: 3px dashed #7fc4ff; }
+.gap { width: 62px; height: 88px; border: 2px dashed var(--line); border-radius: 7px; box-sizing: border-box; }
 .arrow2 { padding: 6px 14px; font-size: 16px; }
 .piles { display: flex; gap: 18px; align-items: flex-start; }
-.pilebox { text-align: center; } .pilecard.back { width: 54px; height: 76px; border-radius: 6px; margin: 0 auto 2px; display: flex; align-items: center; justify-content: center; font-weight: 700; background: repeating-linear-gradient(45deg, #263a8c, #263a8c 5px, #3150b8 5px, #3150b8 10px); border: 2px solid #fff; box-sizing: border-box; }
+.pilebox { text-align: center; } .pilecard.back { width: 54px; height: 76px; border-radius: 6px; margin: 0 auto 2px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-shadow: 0 1px 2px #000c; background: var(--card-back); border: 2px solid var(--card-back-edge); box-sizing: border-box; }
 .gonebox2 { display: flex; flex-wrap: wrap; gap: 3px; max-width: 170px; justify-content: center; min-height: 40px; }
 .price2 { font-size: 12px; line-height: 1.35; margin-top: 6px; text-align: center; max-width: 110px; }
 .spot { display: flex; flex-direction: column; align-items: center; width: auto; }
@@ -163,6 +303,7 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .chip.big { font-size: 15px; padding: 3px 7px; }
 .stage .keyrow { max-width: none; }
 .ctag { white-space: nowrap; }
+.ctag.t-guard { background: #fffaf0; color: #2a2238; border-color: #b8322a; }
 .ctag.t-safe { background: #23824f; } .ctag.t-risky { background: #b87a0c; } .ctag.t-deadly { background: #b8322a; }
 .ctag.inl { position: static; transform: none; display: inline-block; font-size: 12px; }
 .stage .keyzone { border: 1px dashed #6fe0a3; border-radius: 8px; }
@@ -171,11 +312,10 @@ button.glow, .glow { box-shadow: 0 0 0 3px #ffd36b, 0 0 14px #ffd36b; }
 .fit { width: 100%; max-width: 720px; overflow: hidden; }
 @media (max-width: 600px) {
   .play { padding: 6px; gap: 8px; }
-  .modes { flex-wrap: wrap; padding: 6px 6px 0; gap: 6px; }
+  .modes { flex-wrap: wrap; gap: 6px; } .modesbar { padding: 6px 6px 0; }
   .modes button { padding: 6px 8px; font-size: 13px; }
   .topbar { gap: 6px; } .topbar button { padding: 6px 9px; font-size: 13px; }
   .actions { gap: 6px; } button.big { font-size: 14px; padding: 8px 12px; }
   .pbtn { min-width: 0; flex: 1 0 22px; padding: 8px 0; font-size: 12px; }
-  .klegend { display: none; }
 }
 

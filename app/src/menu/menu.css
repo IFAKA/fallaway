@@ -1,0 +1,310 @@
+/* World menu. Loaded with the lazy menu chunk. Every rule is scoped under
+   .menu (the backdrop has its own backdrop.css) so nothing here can restyle the game (App.css), and the
+   game's global button / .title / .actions / .stage rules are overridden or
+   avoided with menu-* class names. */
+
+/* Registered so theme colours can transition between worlds. */
+@property --bg-glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #1b4048;
+}
+
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #5cc98f;
+}
+
+.menu {
+  --bg: #0d1016;
+  --text: #ebe7da;
+  --muted: #9a9fab;
+  --border: #343a48;
+  --radius: 6px;
+
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Everything below scales with the window height too, so Play is never below the fold. */
+  padding: clamp(1rem, 5vh, 4rem) 1rem clamp(1rem, 3vh, 2rem);
+  color: var(--text);
+  background: radial-gradient(circle at 50% 55%, var(--bg-glow), var(--bg) 70%);
+  transition: --bg-glow 0.4s ease-out, --accent 0.4s ease-out;
+  overflow: hidden;
+  color-scheme: dark;
+}
+
+.menu *,
+.menu *::before,
+.menu *::after {
+  box-sizing: border-box;
+}
+
+.menu[data-world='candy'] {
+  --radius: 999px;
+}
+
+.menu[data-world='moon'] {
+  --radius: 12px;
+}
+
+/* ---------- Title ---------- */
+
+.menu .menu-title {
+  margin: 0;
+  font-size: clamp(2.5rem, min(14vw, 15vh), 9rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-wrap: balance;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.menu[data-world='earth'] .menu-title {
+  background-image: linear-gradient(180deg, #f4f1e4 35%, #8fd6a4 70%, #4f9fd0);
+  filter: drop-shadow(0 6px 24px rgb(92 201 143 / 0.25));
+}
+
+.menu[data-world='candy'] .menu-title {
+  background-image: repeating-linear-gradient(-45deg, #fff4f8 0 14px, #ff8fbb 14px 28px);
+  filter: drop-shadow(0 4px 0 #b83a6e) drop-shadow(0 10px 28px rgb(255 121 173 / 0.35));
+}
+
+.menu[data-world='moon'] .menu-title {
+  background-image: linear-gradient(180deg, #ffffff 30%, #c3bbff);
+  filter: drop-shadow(0 0 28px rgb(165 150 255 / 0.55));
+}
+
+/* ---------- Stage ---------- */
+
+.menu .menu-stage {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  flex: 1;
+  min-height: 160px;
+}
+
+.menu .drag-surface {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.menu .drag-surface:active {
+  cursor: grabbing;
+}
+
+/* Covers the whole menu so the dive can fill the screen. Sits above the
+   backdrop (same layer, later in the DOM) and below the menu text. */
+.menu .canvas-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ---------- World info ---------- */
+
+.menu .world-label,
+.menu .world-name,
+.menu .world-tagline {
+  text-align: center;
+}
+
+.menu .world-label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.menu .world-name {
+  margin: 0.25rem 0;
+  font-size: clamp(1.5rem, min(5vw, 5vh), 3rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.menu .world-tagline {
+  margin: 0 0 clamp(0.5rem, 2vh, 1rem);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.menu .world-terrain {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 0.75rem;
+  margin: 0 0 clamp(0.75rem, 3vh, 1.5rem);
+}
+
+.menu .terrain {
+  padding: 0 1.25rem;
+  text-align: center;
+}
+
+.menu .terrain + .terrain {
+  border-left: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.menu .terrain dt {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.menu .terrain dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.menu .menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.menu .menu-btn {
+  min-height: 44px;
+  padding: 0 1.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: var(--radius);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.2s, background-color 0.2s, border-radius 0.4s;
+}
+
+.menu .menu-btn:hover {
+  background: transparent;
+  border-color: var(--accent);
+}
+
+.menu .menu-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.menu .menu-btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 85%, white);
+}
+
+.menu .menu-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Zoom into a world ---------- */
+
+.menu > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
+  transition: opacity 0.2s ease-out, translate 0.2s ease-out;
+}
+
+/* Diving in, and still at the surface on the way back: only the planet shows. */
+.menu[data-phase='zooming'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil),
+.menu[data-phase='surfacing'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
+  opacity: 0;
+  translate: 0 12px;
+}
+
+.menu[data-phase='zooming'] .menu-title,
+.menu[data-phase='surfacing'] .menu-title {
+  translate: 0 -12px;
+}
+
+/* Rising out of a world: the text comes back once the camera has nearly settled. */
+.menu[data-phase='rising'] > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil) {
+  transition-delay: var(--veil-delay);
+}
+
+/* Real deck: no dive, the whole menu just fades out. */
+.menu[data-phase='leaving'] {
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.menu .zoom-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--veil);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.menu[data-phase='zooming'] .zoom-veil {
+  opacity: 1;
+  transition: opacity var(--veil-duration) ease-in var(--veil-delay);
+}
+
+/* Back from a world: the wash covers the surface until the first frame, then clears as the camera pulls back. */
+.menu[data-phase='surfacing'] .zoom-veil {
+  opacity: 1;
+}
+
+.menu[data-phase='rising'] .zoom-veil {
+  transition: opacity var(--rise-veil-duration) ease-out;
+}
+
+/* Back from Real deck: no world to rise out of, the menu just fades in. */
+.menu[data-from='fade'] {
+  animation: menu-appear 0.25s ease-out;
+}
+
+@keyframes menu-appear {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu,
+  .menu > :not(.menu-stage, .backdrop, .canvas-layer, .zoom-veil),
+  .menu .menu-btn {
+    transition: none;
+  }
+
+  .menu[data-from='fade'] {
+    animation: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .menu .terrain {
+    padding: 0 0.75rem;
+  }
+}
+
+/* Phones held sideways: drop the two least needed lines so Play still fits. */
+@media (max-height: 480px) {
+  .menu .world-label,
+  .menu .world-tagline {
+    display: none;
+  }
+
+  .menu .menu-stage {
+    min-height: 120px;
+  }
+}
