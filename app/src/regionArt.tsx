@@ -205,5 +205,8 @@ export function Panorama({ world, suit, walked = 0, field = false }: { world: Wo
   )
 }
 
+/** a region's ground alone (no sky), in a 54 × 46 box: the end-of-game scenes stand it along their horizon */
+export const Ground = ({ world, suit }: { world: WorldId; suit: number }) => <>{ART[world].scenes[suit]}</>
+
 /** the small landscape on a map card */
 export const RegionArt = ({ world, suit }: { world: WorldId; suit: number }) => <Scene world={world} suit={suit} className="art" />
