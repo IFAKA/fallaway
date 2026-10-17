@@ -11,7 +11,7 @@ const p = await b.newPage(); await p.setViewport({ width: 1300, height: 1100 })
 const errors = []
 p.on('pageerror', e => errors.push(String(e)))
 p.on('console', m => { if (m.type() === 'error') errors.push(m.text()) })
-await p.goto(process.env.URL ?? 'http://localhost:5199/', { waitUntil: 'networkidle0' })
+await p.goto((process.env.URL ?? 'http://localhost:5199/') + '?play', { waitUntil: 'networkidle0' })
 await p.evaluate(() => { localStorage.clear(); localStorage.setItem('zoom-mode', 'guide') })
 await p.reload({ waitUntil: 'networkidle0' })
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))

@@ -42,6 +42,14 @@ function firstScreen(): Screen {
   return open ? game(resume(open)) : menu()
 }
 
+/** a shared `?seed=` deal is played once: back at the menu, Continue, Play and Daily deal must reach the world's own save */
+function dropSharedSeed() {
+  const url = new URL(location.href)
+  if (!url.searchParams.has('seed')) return
+  url.searchParams.delete('seed')
+  history.replaceState(history.state, '', url)
+}
+
 /** a full-screen wash between the menu and a game: the world's colour around a dive, the menu's dark for a plain fade.
  *  `clear` fades it away (arriving), `cover` fades it in (leaving), `hold` just stays (while the menu loads) */
 function Veil({ via, motion, style, onDone }: { via: Arrival; motion: 'clear' | 'cover' | 'hold'; style: CSSProperties; onDone?: () => void }) {
@@ -72,6 +80,7 @@ export default function App() {
   // both games save every step, so leaving loses nothing: Continue (or Real deck) picks up where you left off
   const toMenu = () => {
     write(() => sessionStorage, OPEN, null)
+    dropSharedSeed()
     if (exitOf(to) === 'direct') setScreen(menu())
     else setScreen({ ...screen, leaving: true })
   }

@@ -2,7 +2,9 @@
 
 Rules: `../RULES.md`. Design notes and simulation results: `../DESIGN_NOTES.md`. Vite + React 19 + TypeScript + framer-motion.
 
-Two modes (top of the page; new visitors start on screen):
+A visit starts at the **world menu** (`src/menu/`, a three.js carousel in its own lazy chunk): drag or arrow between three worlds (Earth, Sugar Rose, Moon), then **Continue** (an unfinished game in that world), **Play** (new deal), **Daily deal**, **Real deck** or **How to play**. Each world has its own theme (`src/themes.css`) and its own saved game (`src/save.ts`). **← Menu** in a game screen goes back; both games save every step, so nothing is lost. A shared `?seed=` link, a reload mid-game and `?play` (used by the browser scripts) skip the menu and open the game directly, never loading three.js. Without WebGL the menu still works.
+
+Two game screens:
 - **Play on screen**: the app deals a full animated game (`src/Practice.tsx`, rules in `../core/engine.ts`). Hint suggests a move and shows the odds while you dig. Keyboard: arrows, 1–9/0 (hand cards), Space, S, F, Z, U, N, Esc.
   Every face-up region is tagged **safe / risky / deadly** for the hand you hold. The end screen says how close you came and keeps your **record** (won, win rate, streak, best);
   a game counts only if you played it yourself (no Undo, no Hint, not a replayed or shared `?seed=` deal). **Daily deal**: the same deal for everyone on a date, counted once, with a "Copy result" button.
@@ -22,7 +24,7 @@ Rules in one line: build 4 in a row of the lock's suit in your key row (claim ke
 - `bun scripts/guide-smoke.ts [games] [seed|0]`: cross-checks the real-deck guide against the engine. After every step the guide's pile, waiting cards, hand, key row, gone pile, map, dig and advice must equal the engine's.
 - `bun scripts/render.tsx`: server-renders the app (catches runtime errors without a browser).
 
-Browser checks (headless Chrome via puppeteer-core; start the dev server first; `URL=http://localhost:PORT/` if not 5199):
+Browser checks (headless Chrome via puppeteer-core; start the dev server first; `URL=http://localhost:PORT/` if not 5199). Scripts that start from a fresh visit open `/?play` to skip the menu; `record.mjs` reaches the daily deal through the menu:
 - `node scripts/play.mjs [seed] [games]`: practice mode. Moves, digs and fights by hand, then follows the hint to the end of each game. Fails on any page error.
 - `node scripts/walk.mjs [seed]`: plays a whole real-deck guide game, entering random cards, and prints every screen (table steps, guide text, what it asks). Read it to check the guide leaves no gaps. `SHOTS=10,31` also saves screenshots, `QUIET=1` prints titles only.
 - `node scripts/shot.mjs`: samples card positions during a move animation (a smooth slide shows intermediate positions).
@@ -34,12 +36,12 @@ Browser checks (headless Chrome via puppeteer-core; start the dev server first; 
 - `node scripts/icons.mjs`: renders `public/favicon.svg` into the PNG icons (192, 512, apple-touch).
 - `node scripts/og.mjs`: renders `public/og.png`, the 1200×630 link preview `index.html` points to.
 
-Screenshots go to `/tmp/shots`. Saved games live in `localStorage` (`zoom-v4`, `zoom-guide-v4`, `zoom-mode`, the record in `zoom-stats-v1`). If a saved game ever fails to load, the page offers "Start fresh" (the record is kept).
+Screenshots go to `/tmp/shots`. Saved games live in `localStorage` (`zoom-v4` for Earth, `fallaway-game-candy-v1` and `fallaway-game-moon-v1`, `zoom-guide-v4`, `zoom-mode`, the chosen world in `fallaway-world-v1`, the record in `zoom-stats-v1`). If a saved game ever fails to load, the page offers "Start fresh" (the record is kept).
 
 ## Release
 
 `npm run build` writes a static site to `dist/` (about 130 kB gzipped). Asset paths are relative, so it works from any folder on any static host
-(GitHub Pages, Netlify, Cloudflare Pages, S3, `python3 -m http.server`). It is installable as an app (manifest + icons in `public/`). No server, no accounts, no tracking.
+(Vercel, GitHub Pages, Netlify, Cloudflare Pages, S3, `python3 -m http.server`). It is installable as an app (manifest + icons in `public/`). No server, no accounts, no tracking.
 
 Before a release: `npm run build && npm run lint && bun scripts/smoke.ts 2000 && bun scripts/guide-smoke.ts 500 && bun scripts/render.tsx`, then with `npm run preview` running (`URL=http://localhost:4173/`) or the dev server:
 `node scripts/play.mjs`, `node scripts/record.mjs`, `node scripts/keys.mjs`, `QUIET=1 node scripts/walk.mjs`, `node scripts/phone.mjs`.
