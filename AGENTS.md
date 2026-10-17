@@ -35,6 +35,7 @@ Before you finish a change: `npm run build && npm test && npm run lint` in `app/
 - **No patch rules.** Fix pressure through the core loop (hunger, digging, fighting), not by adding corrective rules such as hidden clocks or escalation.
 - **It must play on a real table.** Every rule has to be easy to run by hand with a physical deck. Write rules text with concrete examples, in plain English.
 - **Saved games.** `localStorage` keys (`zoom-v4`, `zoom-guide-v4`, `zoom-mode`, `zoom-seen-intro-v4`, `zoom-stats-v1`) keep the game's old working name on purpose: renaming them would wipe players' saves and win records.
+  The world menu added keys under the new name: `fallaway-world-v1` (the chosen world) and `fallaway-game-candy-v1` / `fallaway-game-moon-v1` (one saved on-screen game per world; Earth keeps `zoom-v4`). `fallaway-screen-v1` is in `sessionStorage` (the game screen open in this tab, so a reload stays in it).
 - **Naming.** The game is *Fallaway*. "Zoom in" (dig) and "zoom out" (reveal the map) are names of actions, not of the game.
 
 ## Gotchas
